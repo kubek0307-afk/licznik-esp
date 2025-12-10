@@ -69,22 +69,26 @@ function showApp(){
   app.style.display="block";
 }
 
-async function loadData() {
+async function loadData(){
   const res = await fetch("/api/data", {
-    headers: { "access-code": accessCode }
+    headers: {
+      "access-code": accessCode
+    }
   });
 
   if (!res.ok) {
-    alert("Błędny kod dostępu");
+    alert("Zły kod dostępu");
     return;
   }
 
   const data = await res.json();
   showApp();
 
+  // LICZNIKI
   cLysy.innerText = data.lysy;
   cPawel.innerText = data.pawel;
 
+  // HISTORIA
   let html = "";
   for (const h of data.history) {
     html += `
@@ -100,24 +104,25 @@ async function loadData() {
 }
 
 async function send(){
-  const fd=new FormData();
-  fd.append("person",person.value);
-  fd.append("text",text.value);
-  if(img.files[0])fd.append("image",img.files[0]);
+  const fd = new FormData();
+  fd.append("person", person.value);
+  fd.append("text", text.value);
+  if (img.files[0]) fd.append("image", img.files[0]);
 
-  await fetch("/api/add",{
-    method:"POST",
-    headers:{"access-code":accessCode},
-    body:fd
+  await fetch("/api/add", {
+    method: "POST",
+    headers: {"access-code": accessCode},
+    body: fd
   });
 
-  text.value="";
-  img.value="";
+  text.value = "";
+  img.value = "";
   loadData();
 }
 
-if(accessCode)loadData();
+if (accessCode) loadData();
 </script>
+
 
 </body>
 </html>
