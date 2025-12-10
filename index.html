@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Zjebane montaże</title>
+
+<style>
+body{margin:0;background:#111;color:#eee;font-family:Arial}
+header{padding:14px;background:#222;text-align:center;font-size:20px}
+.container{padding:12px}
+.box{background:#1d1d1d;padding:12px;border-radius:8px;margin-top:12px}
+button{width:100%;padding:14px;font-size:18px;background:#4f8cff;border:none;border-radius:6px;color:#fff;margin-top:10px}
+input,textarea,select{width:100%;padding:10px;margin:6px 0;border:none;border-radius:6px;background:#222;color:#fff}
+.record{border-bottom:1px solid #333;padding:10px 0}
+img{max-width:100%;border-radius:6px;margin-top:6px}
+.counter{display:flex;justify-content:space-between;font-size:20px}
+</style>
+</head>
+
+<body>
+<header>Zjebane montaże</header>
+
+<div class="container">
+
+<div id="loginBox" class="box">
+<input id="codeInput" type="password" placeholder="Kod dostępu">
+<button onclick="login()">Zaloguj</button>
+</div>
+
+<div id="app" style="display:none">
+
+<div class="box counter">
+<div>Lysy: <b id="cLysy"></b></div>
+<div>Paweł: <b id="cPawel"></b></div>
+</div>
+
+<div class="box">
+<select id="person">
+<option value="lysy">Lysy</option>
+<option value="pawel">Paweł</option>
+</select>
+
+<textarea id="text" placeholder="Opis"></textarea>
+
+<input type="file" id="img" accept="image/*" capture="camera">
+
+<button onclick="send()">Dodaj wpis</button>
+</div>
+
+<div class="box">
+<h3>Historia</h3>
+<div id="history"></div>
+</div>
+
+</div>
+</div>
+
+<script>
+let accessCode = localStorage.getItem("accessCode") || "";
+
+async function login(){
+  accessCode=document.getElementById("codeInput").value;
+  localStorage.setItem("accessCode",accessCode);
+  loadData();
+}
+
+function showApp(){
+  loginBox.style.display="none";
+  app.style.display="block";
+}
+
+async function loadData(){
+  const res=await fetch("/api/data",{headers:{"access-code":accessCode}});
+  if(!res.ok)return;
+  const data=await res.json();
+  showApp();
+
+  cLysy.innerText=data.lysy;
+  cPawel.innerText=data.pawel;
+
+  let html="";
+  for(const h of data.history){
+    html+=`<div class="record">
+    <b>${h.person}</b> - ${h.date}<br>
+    ${h.text || ""}
+    ${h.img?`<img src="${h.img}">`:""}
+    </div>`;
+  }
+  history.innerHTML=html;
+}
+
+async function send(){
+  const fd=new FormData();
+  fd.append("person",person.value);
+  fd.append("text",text.value);
+  if(img.files[0])fd.append("image",img.files[0]);
+
+  await fetch("/api/add",{
+    method:"POST",
+    headers:{"access-code":accessCode},
+    body:fd
+  });
+
+  loadData();
+}
+
+if(accessCode)loadData();
+</script>
+
+</body>
+</html>
