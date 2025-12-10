@@ -60,4 +60,53 @@ img{max-width:100%;border-radius:6px;margin-top:6px}
 let accessCode = localStorage.getItem("accessCode") || "";
 
 async function login(){
-  accessCode=document.getElementByI
+  accessCode=document.getElementById("codeInput").value;
+  localStorage.setItem("accessCode",accessCode);
+  loadData();
+}
+
+function showApp(){
+  loginBox.style.display="none";
+  app.style.display="block";
+}
+
+async function loadData(){
+  const res=await fetch("/api/data",{headers:{"access-code":accessCode}});
+  if(!res.ok)return;
+  const data=await res.json();
+  showApp();
+
+  cLysy.innerText=data.lysy;
+  cPawel.innerText=data.pawel;
+
+  let html="";
+  for(const h of data.history){
+    html+=`<div class="record">
+    <b>${h.person}</b> - ${h.date}<br>
+    ${h.text || ""}
+    ${h.img?`<img src="${h.img}">`:""}
+    </div>`;
+  }
+  history.innerHTML=html;
+}
+
+async function send(){
+  const fd=new FormData();
+  fd.append("person",person.value);
+  fd.append("text",text.value);
+  if(img.files[0])fd.append("image",img.files[0]);
+
+  await fetch("/api/add",{
+    method:"POST",
+    headers:{"access-code":accessCode},
+    body:fd
+  });
+
+  loadData();
+}
+
+if(accessCode)loadData();
+</script>
+
+</body>
+</html>
