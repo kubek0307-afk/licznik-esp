@@ -1,8 +1,7 @@
 const express = require("express");
 const multer = require("multer");
 const cors = require("cors");
-const fs = require("fs");
-const path = require("path");
+const mongoose = require("mongoose");
 
 const app = express();
 app.use(cors());
@@ -12,73 +11,77 @@ app.use("/uploads", express.static("uploads"));
 
 const ACCESS_CODE = "kutas";
 
-// ===== DANE W PAMIĘCI =====
-let data = {
-  lysy: 0,
-  pawel: 0,
-  history: []
-};
+// 🔴 TU WSTAWIASZ SWOJE PRAWDZIWE HASŁO (PO ZMIANIE W ATLAS)
+const MONGO_URI = "mongodb+srv://admin:kubatokox664@cluster0.lry9ftq.mongodb.net/?retryWrites=true&w=majority";
 
-// ===== WCZYTANIE Z PLIKU =====
-if (fs.existsSync("db.json")) {
-  data = JSON.parse(fs.readFileSync("db.json"));
+mongoose.connect(MONGO_URI)
+  .then(() => console.log("✅ MongoDB połączone"))
+  .catch(err => console.error("❌ Błąd MongoDB:", err));
+
+const EntrySchema = new mongoose.Schema({
+  person: String,
+  text: String,
+  img: String,
+  date: String
+});
+
+const CounterSchema = new mongoose.Schema({
+  lysy: Number,
+  pawel: Number
+});
+
+const Entry = mongoose.model("Entry", EntrySchema);
+const Counter = mongoose.model("Counter", CounterSchema);
+
+async function initCounter() {
+  const count = await Counter.findOne();
+  if (!count) {
+    await Counter.create({ lysy: 0, pawel: 0 });
+  }
 }
+initCounter();
 
-function saveDB() {
-  fs.writeFileSync("db.json", JSON.stringify(data, null, 2));
-}
-
-// ===== UPLOAD ZDJĘĆ =====
 const storage = multer.diskStorage({
   destination: "uploads",
-  filename: (req, file, cb) => {
-    cb(null, Date.now() + path.extname(file.originalname));
-  }
+  filename: (req, file, cb) =>
+    cb(null, Date.now() + "-" + file.originalname)
 });
 const upload = multer({ storage });
 
-// ===== AUTORYZACJA =====
 function checkAccess(req, res, next) {
   const code = req.headers["access-code"] || req.body.accessCode;
-  if (code !== ACCESS_CODE) {
-    return res.status(403).json({ error: "Brak dostępu" });
-  }
+  if (code !== ACCESS_CODE)
+    return res.status(403).json({ error: "Forbidden" });
   next();
 }
 
-// ===== API =====
-
-// POBIERANIE DANYCH
-app.get("/api/data", checkAccess, (req, res) => {
-  res.json(data);
+app.get("/api/data", checkAccess, async (req, res) => {
+  const counter = await Counter.findOne();
+  const history = await Entry.find().sort({ _id: -1 }).limit(50);
+  res.json({
+    lysy: counter.lysy,
+    pawel: counter.pawel,
+    history
+  });
 });
 
-// DODAWANIE WPISU
-app.post("/api/add", checkAccess, upload.single("image"), (req, res) => {
+app.post("/api/add", checkAccess, upload.single("image"), async (req, res) => {
   const { person, text } = req.body;
 
-  if (!person) {
-    return res.status(400).json({ error: "Brak osoby" });
-  }
+  const counter = await Counter.findOne();
+  if (person === "lysy") counter.lysy++;
+  if (person === "pawel") counter.pawel++;
+  await counter.save();
 
-  if (person === "lysy") data.lysy++;
-  if (person === "pawel") data.pawel++;
-
-  const entry = {
+  const entry = await Entry.create({
     person,
     text: text || "",
     img: req.file ? "/uploads/" + req.file.filename : null,
     date: new Date().toLocaleString("pl-PL")
-  };
-
-  data.history.unshift(entry);
-  saveDB();
+  });
 
   res.json({ ok: true, entry });
 });
 
-// ===== START SERWERA =====
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log("Server działa na porcie " + PORT);
-});
+app.listen(PORT, () => console.log("✅ Server działa na porcie " + PORT));
