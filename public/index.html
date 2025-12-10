@@ -1,7 +1,59 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Licznik</title>
+<style>
+body { margin:0; background:#111; color:#eee; font-family:Arial }
+.box { background:#1d1d1d; padding:12px; border-radius:8px; margin:12px }
+button { width:100%; padding:14px; margin-top:10px; font-size:16px;
+  background:#4f8cff; border:none; color:#fff; border-radius:6px }
+input, textarea, select {
+  width:100%; padding:10px; margin-top:6px;
+  border:none; border-radius:6px; background:#222; color:#fff
+}
+.record { border-bottom:1px solid #333; padding:8px 0 }
+img { max-width:100%; border-radius:6px; margin-top:6px }
+</style>
+</head>
+<body>
+
+<div class="box" id="loginBox">
+  <input id="codeInput" type="password" placeholder="Kod dostępu">
+  <button onclick="login()">Zaloguj</button>
+</div>
+
+<div id="app" style="display:none">
+
+  <div class="box">
+    Lysy: <b id="cLysy">0</b><br>
+    Paweł: <b id="cPawel">0</b>
+  </div>
+
+  <div class="box">
+    <select id="person">
+      <option value="lysy">Lysy</option>
+      <option value="pawel">Paweł</option>
+    </select>
+
+    <textarea id="text" placeholder="Opis"></textarea>
+    <input type="file" id="img">
+
+    <button onclick="send()">Dodaj</button>
+  </div>
+
+  <div class="box">
+    <h3>Historia</h3>
+    <div id="history"></div>
+  </div>
+
+</div>
+
 <script>
 let accessCode = localStorage.getItem("accessCode") || "";
 
-async function login(){
+function login(){
   accessCode = document.getElementById("codeInput").value;
   localStorage.setItem("accessCode", accessCode);
   loadData();
@@ -18,18 +70,16 @@ async function loadData(){
   });
 
   if (!res.ok) {
-    alert("Błędny kod dostępu");
+    alert("Zły kod");
     return;
   }
 
   const data = await res.json();
   showApp();
 
-  // LICZNIKI
   document.getElementById("cLysy").innerText  = data.lysy;
   document.getElementById("cPawel").innerText = data.pawel;
 
-  // HISTORIA
   let html = "";
   for (const h of data.history) {
     html += `
@@ -49,8 +99,8 @@ async function send(){
   fd.append("person", document.getElementById("person").value);
   fd.append("text", document.getElementById("text").value);
 
-  const imgInput = document.getElementById("img");
-  if (imgInput.files[0]) fd.append("image", imgInput.files[0]);
+  const img = document.getElementById("img");
+  if (img.files[0]) fd.append("image", img.files[0]);
 
   await fetch("/api/add", {
     method: "POST",
@@ -64,6 +114,8 @@ async function send(){
   loadData();
 }
 
-// AUTO-LOGIN
 if (accessCode) loadData();
 </script>
+
+</body>
+</html>
