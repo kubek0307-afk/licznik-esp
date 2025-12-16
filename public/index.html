@@ -46,14 +46,14 @@ img{max-width:100%;border-radius:6px}
 let accessCode = localStorage.getItem("accessCode") || "";
 
 function login(){
-  accessCode = codeInput.value;
+  accessCode = document.getElementById("codeInput").value;
   localStorage.setItem("accessCode", accessCode);
   loadData();
 }
 
 function showApp(){
-  loginBox.style.display="none";
-  app.style.display="block";
+  document.getElementById("loginBox").style.display="none";
+  document.getElementById("app").style.display="block";
 }
 
 async function loadData(){
@@ -69,15 +69,11 @@ async function loadData(){
   const data = await res.json();
   showApp();
 
-  cLysy.innerText = data.lysy;
-  cPawel.innerText = data.pawel;
+  document.getElementById("cLysy").innerText = data.lysy;
+  document.getElementById("cPawel").innerText = data.pawel;
 
-  history.innerHTML = "";
-
-  if(!data.history || data.history.length === 0){
-    history.innerHTML = "<i>Brak wpisów</i>";
-    return;
-  }
+  const historyDiv = document.getElementById("history");
+  historyDiv.innerHTML = "";
 
   data.history.forEach(h => {
     const div = document.createElement("div");
@@ -87,23 +83,24 @@ async function loadData(){
       ${h.text || ""}
       ${h.img ? `<br><img src="${h.img}">` : ""}
     `;
-    history.appendChild(div);
+    historyDiv.appendChild(div);
   });
 }
 
 function send(){
   const fd = new FormData();
-  fd.append("person", person.value);
-  fd.append("text", text.value);
-  if(img.files[0]) fd.append("image", img.files[0]);
+  fd.append("person", document.getElementById("person").value);
+  fd.append("text", document.getElementById("text").value);
+  if(document.getElementById("img").files[0])
+    fd.append("image", document.getElementById("img").files[0]);
 
   fetch("/api/add", {
     method:"POST",
     headers:{ "access-code": accessCode },
     body: fd
   }).then(() => {
-    text.value="";
-    img.value="";
+    document.getElementById("text").value="";
+    document.getElementById("img").value="";
     loadData();
   });
 }
