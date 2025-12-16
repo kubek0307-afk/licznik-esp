@@ -30,7 +30,7 @@ fetch("/api/data", {
 .then(r => r.json())
 .then(d => {
   d.history.forEach(h => {
-    if (h.location) {
+    if (h.location && h.location.lat && h.location.lng) {
       L.marker([h.location.lat, h.location.lng])
         .addTo(map)
         .bindPopup(`
