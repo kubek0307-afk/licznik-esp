@@ -58,7 +58,7 @@ const Counter = mongoose.model("Counter", new mongoose.Schema({
   pawel: Number
 }));
 
-/* ===== INIT COUNTERS ===== */
+/* ===== INIT ===== */
 (async () => {
   const c = await Counter.findOne();
   if (!c) await Counter.create({ lysy: 0, pawel: 0 });
@@ -77,11 +77,7 @@ function checkAccess(req, res, next) {
 app.get("/api/data", checkAccess, async (req, res) => {
   const counter = await Counter.findOne();
   const history = await Entry.find().sort({ _id: -1 }).limit(100);
-  res.json({
-    lysy: counter.lysy,
-    pawel: counter.pawel,
-    history
-  });
+  res.json({ lysy: counter.lysy, pawel: counter.pawel, history });
 });
 
 app.post("/api/add", checkAccess, upload.single("image"), async (req, res) => {
@@ -103,7 +99,6 @@ app.post("/api/add", checkAccess, upload.single("image"), async (req, res) => {
   res.json({ ok: true, entry });
 });
 
-/* ===== DELETE ENTRY (ADMIN) ===== */
 app.delete("/api/delete/:id", checkAccess, async (req, res) => {
   await Entry.findByIdAndDelete(req.params.id);
   res.json({ ok: true });
@@ -114,3 +109,4 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () =>
   console.log("✅ Server działa na porcie " + PORT)
 );
+
