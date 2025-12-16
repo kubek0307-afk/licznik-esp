@@ -20,7 +20,7 @@ cloudinary.config({
 
 /* ===== MULTER + CLOUDINARY ===== */
 const storage = new CloudinaryStorage({
-  cloudinary: cloudinary,
+  cloudinary,
   params: {
     folder: "licznik",
     allowed_formats: ["jpg", "jpeg", "png"],
@@ -30,17 +30,14 @@ const storage = new CloudinaryStorage({
     ]
   }
 });
-
 const upload = multer({ storage });
 
-/* ===== APP CONFIG ===== */
+/* ===== CONFIG ===== */
 const ACCESS_CODE = "kutas";
-
 const MONGO_URI =
   "mongodb+srv://admin:kubatokox664@cluster0.lry9ftq.mongodb.net/?retryWrites=true&w=majority";
 
-mongoose
-  .connect(MONGO_URI)
+mongoose.connect(MONGO_URI)
   .then(() => console.log("✅ MongoDB połączone"))
   .catch(err => console.error("❌ MongoDB error:", err));
 
@@ -49,7 +46,11 @@ const EntrySchema = new mongoose.Schema({
   person: String,
   text: String,
   img: String,
-  date: String
+  date: String,
+  location: {
+    lat: Number,
+    lng: Number
+  }
 });
 
 const CounterSchema = new mongoose.Schema({
@@ -62,59 +63,43 @@ const Counter = mongoose.model("Counter", CounterSchema);
 
 /* ===== INIT COUNTERS ===== */
 async function initCounter() {
-  const count = await Counter.findOne();
-  if (!count) {
-    await Counter.create({ lysy: 0, pawel: 0 });
-  }
+  const c = await Counter.findOne();
+  if (!c) await Counter.create({ lysy: 0, pawel: 0 });
 }
 initCounter();
 
 /* ===== AUTH ===== */
 function checkAccess(req, res, next) {
   const code = req.headers["access-code"] || req.body.accessCode;
-  if (code !== ACCESS_CODE) {
-    return res.status(403).json({ error: "Forbidden" });
-  }
+  if (code !== ACCESS_CODE) return res.status(403).json({ error: "Forbidden" });
   next();
 }
 
 /* ===== API ===== */
 app.get("/api/data", checkAccess, async (req, res) => {
   const counter = await Counter.findOne();
-  const history = await Entry.find().sort({ _id: -1 }).limit(50);
-
-  res.json({
-    lysy: counter.lysy,
-    pawel: counter.pawel,
-    history
-  });
+  const history = await Entry.find().sort({ _id: -1 }).limit(100);
+  res.json({ lysy: counter.lysy, pawel: counter.pawel, history });
 });
 
-app.post(
-  "/api/add",
-  checkAccess,
-  upload.single("image"),
-  async (req, res) => {
-    const { person, text } = req.body;
+app.post("/api/add", checkAccess, upload.single("image"), async (req, res) => {
+  const { person, text, lat, lng } = req.body;
 
-    const counter = await Counter.findOne();
-    if (person === "lysy") counter.lysy++;
-    if (person === "pawel") counter.pawel++;
-    await counter.save();
+  const counter = await Counter.findOne();
+  if (person === "lysy") counter.lysy++;
+  if (person === "pawel") counter.pawel++;
+  await counter.save();
 
-    const entry = await Entry.create({
-      person,
-      text: text || "",
-      img: req.file ? req.file.path : null, // ⬅️ URL Z CLOUDINARY
-      date: new Date().toLocaleString("pl-PL")
-    });
+  const entry = await Entry.create({
+    person,
+    text: text || "",
+    img: req.file ? req.file.path : null,
+    date: new Date().toLocaleString("pl-PL"),
+    location: lat && lng ? { lat, lng } : null
+  });
 
-    res.json({ ok: true, entry });
-  }
-);
+  res.json({ ok: true, entry });
+});
 
-/* ===== START ===== */
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () =>
-  console.log("✅ Server działa na porcie " + PORT)
-);
+app.listen(PORT, () => console.log("✅ Server działa na porcie " + PORT));
