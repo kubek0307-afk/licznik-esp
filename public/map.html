@@ -1,1 +1,48 @@
 
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mapa</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+<style>
+body{margin:0}
+#map{height:100vh}
+</style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<script>
+const accessCode = localStorage.getItem("accessCode");
+
+const map = L.map('map').setView([52.2, 21.0], 6);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
+  .addTo(map);
+
+fetch("/api/data", {
+  headers: { "access-code": accessCode }
+})
+.then(r => r.json())
+.then(d => {
+  d.history.forEach(h => {
+    if (h.location && h.location.lat && h.location.lng) {
+      L.marker([h.location.lat, h.location.lng])
+        .addTo(map)
+        .bindPopup(`
+          <b>${h.person}</b><br>
+          ${h.text || ""}<br>
+          ${h.img ? `<img src="${h.img}" style="width:150px">` : ""}
+        `);
+    }
+  });
+});
+</script>
+
+</body>
+</html>
