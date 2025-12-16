@@ -9,6 +9,11 @@ app.use(express.json());
 app.use(express.static("public"));
 app.use("/uploads", express.static("uploads"));
 
+const cloudinary = require("cloudinary").v2;
+const { CloudinaryStorage } = require("multer-storage-cloudinary");
+const multer = require("multer");
+
+
 const ACCESS_CODE = "kutas";
 
 // 🔴 TU WSTAWIASZ SWOJE PRAWDZIWE HASŁO (PO ZMIANIE W ATLAS)
