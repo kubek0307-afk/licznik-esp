@@ -1,3 +1,5 @@
+require("dotenv").config(); // lokalnie OK, na Render nie przeszkadza
+
 const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
@@ -11,14 +13,18 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static("public"));
 
+/* ===== ENV ===== */
+const ACCESS_CODE = process.env.ACCESS_CODE;
+const MONGO_URI = process.env.MONGO_URI;
+
 /* ===== CLOUDINARY ===== */
 cloudinary.config({
-  cloud_name: "dfvezuwt6",
-  api_key: "427148529627837",
-  api_secret: "5v4lkLY2D-aajzg8MnyosrcYhDo"
+  cloud_name: process.env.CLOUD_NAME,
+  api_key: process.env.CLOUD_API_KEY,
+  api_secret: process.env.CLOUD_API_SECRET
 });
 
-/* ===== MULTER + CLOUDINARY ===== */
+/* ===== MULTER ===== */
 const storage = new CloudinaryStorage({
   cloudinary,
   params: {
@@ -32,37 +38,25 @@ const storage = new CloudinaryStorage({
 });
 const upload = multer({ storage });
 
-/* ===== CONFIG ===== */
-const ACCESS_CODE = "kutas";
-const MONGO_URI =
-  "mongodb+srv://admin:kubatokox664@cluster0.lry9ftq.mongodb.net/?retryWrites=true&w=majority";
-
 /* ===== DB ===== */
 mongoose.connect(MONGO_URI)
   .then(() => console.log("✅ MongoDB połączone"))
   .catch(err => console.error("❌ MongoDB error:", err));
 
-/* ===== SCHEMAS ===== */
-const EntrySchema = new mongoose.Schema({
+/* ===== MODELS ===== */
+const Entry = mongoose.model("Entry", new mongoose.Schema({
   person: String,
   text: String,
   img: String,
-  date: String,
-  location: {
-    lat: Number,
-    lng: Number
-  }
-});
+  date: String
+}));
 
-const CounterSchema = new mongoose.Schema({
+const Counter = mongoose.model("Counter", new mongoose.Schema({
   lysy: Number,
   pawel: Number
-});
+}));
 
-const Entry = mongoose.model("Entry", EntrySchema);
-const Counter = mongoose.model("Counter", CounterSchema);
-
-/* ===== INIT COUNTERS ===== */
+/* ===== INIT ===== */
 (async () => {
   const c = await Counter.findOne();
   if (!c) await Counter.create({ lysy: 0, pawel: 0 });
@@ -80,7 +74,7 @@ function checkAccess(req, res, next) {
 /* ===== API ===== */
 app.get("/api/data", checkAccess, async (req, res) => {
   const counter = await Counter.findOne();
-  const history = await Entry.find().sort({ _id: -1 }).limit(100);
+  const history = await Entry.find().sort({ _id: -1 }).limit(50);
   res.json({
     lysy: counter.lysy,
     pawel: counter.pawel,
@@ -89,7 +83,7 @@ app.get("/api/data", checkAccess, async (req, res) => {
 });
 
 app.post("/api/add", checkAccess, upload.single("image"), async (req, res) => {
-  const { person, text, lat, lng } = req.body;
+  const { person, text } = req.body;
 
   const counter = await Counter.findOne();
   if (person === "lysy") counter.lysy++;
@@ -100,8 +94,7 @@ app.post("/api/add", checkAccess, upload.single("image"), async (req, res) => {
     person,
     text: text || "",
     img: req.file ? req.file.path : null,
-    date: new Date().toLocaleString("pl-PL"),
-    location: lat && lng ? { lat, lng } : null
+    date: new Date().toLocaleString("pl-PL")
   });
 
   res.json({ ok: true, entry });
@@ -109,6 +102,4 @@ app.post("/api/add", checkAccess, upload.single("image"), async (req, res) => {
 
 /* ===== START ===== */
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () =>
-  console.log("✅ Server działa na porcie " + PORT)
-);
+app.listen(PORT, () => console.log("✅ Server działa na porcie " + PORT));
