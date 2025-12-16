@@ -1,5 +1,3 @@
-
-
 const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
@@ -48,7 +46,11 @@ const Entry = mongoose.model("Entry", new mongoose.Schema({
   person: String,
   text: String,
   img: String,
-  date: String
+  date: String,
+  location: {
+    lat: Number,
+    lng: Number
+  }
 }));
 
 const Counter = mongoose.model("Counter", new mongoose.Schema({
@@ -56,7 +58,7 @@ const Counter = mongoose.model("Counter", new mongoose.Schema({
   pawel: Number
 }));
 
-/* ===== INIT ===== */
+/* ===== INIT COUNTERS ===== */
 (async () => {
   const c = await Counter.findOne();
   if (!c) await Counter.create({ lysy: 0, pawel: 0 });
@@ -74,7 +76,7 @@ function checkAccess(req, res, next) {
 /* ===== API ===== */
 app.get("/api/data", checkAccess, async (req, res) => {
   const counter = await Counter.findOne();
-  const history = await Entry.find().sort({ _id: -1 }).limit(50);
+  const history = await Entry.find().sort({ _id: -1 }).limit(100);
   res.json({
     lysy: counter.lysy,
     pawel: counter.pawel,
@@ -83,7 +85,7 @@ app.get("/api/data", checkAccess, async (req, res) => {
 });
 
 app.post("/api/add", checkAccess, upload.single("image"), async (req, res) => {
-  const { person, text } = req.body;
+  const { person, text, lat, lng } = req.body;
 
   const counter = await Counter.findOne();
   if (person === "lysy") counter.lysy++;
@@ -94,12 +96,21 @@ app.post("/api/add", checkAccess, upload.single("image"), async (req, res) => {
     person,
     text: text || "",
     img: req.file ? req.file.path : null,
-    date: new Date().toLocaleString("pl-PL")
+    date: new Date().toLocaleString("pl-PL"),
+    location: lat && lng ? { lat, lng } : null
   });
 
   res.json({ ok: true, entry });
 });
 
+/* ===== DELETE ENTRY (ADMIN) ===== */
+app.delete("/api/delete/:id", checkAccess, async (req, res) => {
+  await Entry.findByIdAndDelete(req.params.id);
+  res.json({ ok: true });
+});
+
 /* ===== START ===== */
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log("✅ Server działa na porcie " + PORT));
+app.listen(PORT, () =>
+  console.log("✅ Server działa na porcie " + PORT)
+);
