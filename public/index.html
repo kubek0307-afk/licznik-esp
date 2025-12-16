@@ -41,6 +41,7 @@ img{max-width:160px;border-radius:6px;margin-top:6px}
   <select id="type">
     <option value="lysy">Lysy</option>
     <option value="pawel">Paweł</option>
+    <option value="poprawa">Poprawa</option>
   </select>
   <textarea id="text" placeholder="Opis"></textarea>
   <input type="file" id="img">
@@ -80,15 +81,13 @@ async function loadData(){
 
   historyDiv.innerHTML="";
   d.history.forEach(h=>{
+    const t = h.type || "lysy"; // zabezpieczenie na stare wpisy
     const el=document.createElement("div");
     el.className="box";
     el.innerHTML=`
-      <span class="tag ${h.type}">${h.type}</span> ${h.date}<br>
+      <span class="tag ${t}">${t}</span> ${h.date}<br>
       ${h.text||""}
       ${h.img?`<img src="${h.img}">`:""}
-      ${isAdmin && h.type!=="poprawa" ? `
-        <br><button onclick="poprawa('${h._id}')">🔄 Poprawa</button>
-      `:""}
     `;
     historyDiv.appendChild(el);
   });
@@ -108,11 +107,6 @@ function send(){
 
 function sendForm(fd){
   fetch("/api/add",{ method:"POST", headers:{ "access-code": accessCode }, body:fd })
-    .then(loadData);
-}
-
-function poprawa(id){
-  fetch("/api/poprawa/"+id,{ method:"POST", headers:{ "access-code": accessCode }})
     .then(loadData);
 }
 
