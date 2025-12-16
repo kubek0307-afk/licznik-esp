@@ -12,7 +12,7 @@ app.use(express.json());
 app.use(express.static("public"));
 
 /* ===== ENV ===== */
-const USER_CODE = process.env.ACCESS_CODE;        /
+const USER_CODE = process.env.ACCESS_CODE;        
 const ADMIN_CODE = process.env.ADMIN_CODE;        
 const MONGO_URI = process.env.MONGO_URI;
 
