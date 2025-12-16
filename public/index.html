@@ -4,43 +4,84 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Licznik</title>
+
 <style>
-body{background:#111;color:#eee;font-family:Arial;margin:0}
-.box{background:#1c1c1c;padding:12px;margin:12px;border-radius:8px}
-button,input,textarea,select{width:100%;margin-top:8px;padding:10px}
-img{max-width:100%;border-radius:6px}
-.admin{background:#5b0000}
+body{
+  background:#111;
+  color:#eee;
+  font-family:Arial, sans-serif;
+  margin:0;
+}
+.box{
+  background:#1c1c1c;
+  padding:12px;
+  margin:12px;
+  border-radius:8px;
+}
+button,input,textarea,select{
+  width:100%;
+  margin-top:8px;
+  padding:10px;
+}
+img{
+  max-width:100%;
+  border-radius:6px;
+}
+a{
+  color:#4fa3ff;
+  text-decoration:none;
+}
+.admin{
+  background:#5b0000;
+}
+.link-btn{
+  display:inline-block;
+  padding:10px 14px;
+  background:#1c1c1c;
+  border-radius:6px;
+  margin-top:10px;
+}
 </style>
 </head>
+
 <body>
 
+<!-- ===== LOGIN ===== -->
 <div class="box" id="loginBox">
   <input id="codeInput" type="password" placeholder="Hasło">
   <button onclick="login()">Zaloguj</button>
 </div>
 
+<!-- ===== APP ===== -->
 <div id="app" style="display:none">
 
+<!-- ===== COUNTERS + MAP ===== -->
 <div class="box">
   Lysy: <b id="cLysy">0</b><br>
-  Paweł: <b id="cPawel">0</b>
+  Paweł: <b id="cPawel">0</b><br><br>
+
+  <a href="/map.html" class="link-btn">🗺️ Zobacz mapę</a>
 </div>
 
+<!-- ===== ADMIN PANEL ===== -->
 <div class="box admin" id="adminPanel" style="display:none">
-  <b>ADMIN</b>
+  <b>ADMIN</b><br>
   <button onclick="resetAll()">⚠️ WYZERUJ WSZYSTKO</button>
 </div>
 
+<!-- ===== ADD ENTRY ===== -->
 <div class="box">
   <select id="person">
     <option value="lysy">Lysy</option>
     <option value="pawel">Paweł</option>
   </select>
+
   <textarea id="text" placeholder="Opis"></textarea>
   <input type="file" id="img">
   <button onclick="send()">Dodaj</button>
 </div>
 
+<!-- ===== HISTORY ===== -->
 <div class="box">
   <h3>Historia</h3>
   <div id="historyDiv"></div>
@@ -52,71 +93,101 @@ img{max-width:100%;border-radius:6px}
 let accessCode = localStorage.getItem("accessCode") || "";
 let isAdmin = false;
 
+/* ===== LOGIN ===== */
 function login(){
   accessCode = codeInput.value;
   localStorage.setItem("accessCode", accessCode);
   loadData();
 }
 
+/* ===== LOAD DATA ===== */
 async function loadData(){
   const res = await fetch("/api/data", {
     headers: { "access-code": accessCode }
   });
-  if(!res.ok){ alert("Złe hasło"); return; }
+
+  if(!res.ok){
+    alert("Złe hasło");
+    return;
+  }
 
   const data = await res.json();
   isAdmin = data.isAdmin;
 
-  loginBox.style.display="none";
-  app.style.display="block";
+  loginBox.style.display = "none";
+  app.style.display = "block";
   adminPanel.style.display = isAdmin ? "block" : "none";
 
   cLysy.innerText = data.lysy;
   cPawel.innerText = data.pawel;
 
   historyDiv.innerHTML = "";
-  data.history.forEach(h=>{
-    const d=document.createElement("div");
-    d.className="box";
-    d.innerHTML=`
+
+  data.history.forEach(h => {
+    const div = document.createElement("div");
+    div.className = "box";
+
+    div.innerHTML = `
       <b>${h.person}</b> | ${h.date}<br>
-      ${h.text||""}
-      ${h.img?`<br><img src="${h.img}">`:""}
-      ${isAdmin?`<br><button onclick="del('${h._id}')">🗑️ Usuń</button>`:""}
+      ${h.text || ""}
+      ${h.img ? `<br><img src="${h.img}">` : ""}
+      ${isAdmin ? `<br><button onclick="del('${h._id}')">🗑️ Usuń</button>` : ""}
     `;
-    historyDiv.appendChild(d);
+
+    historyDiv.appendChild(div);
   });
 }
 
+/* ===== ADD ENTRY ===== */
 function send(){
-  const fd=new FormData();
-  fd.append("person",person.value);
-  fd.append("text",text.value);
-  if(img.files[0]) fd.append("image",img.files[0]);
+  const fd = new FormData();
+  fd.append("person", person.value);
+  fd.append("text", text.value);
+  if(img.files[0]) fd.append("image", img.files[0]);
 
-  fetch("/api/add",{
-    method:"POST",
-    headers:{ "access-code": accessCode },
-    body:fd
-  }).then(loadData);
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      fd.append("lat", pos.coords.latitude);
+      fd.append("lng", pos.coords.longitude);
+      sendForm(fd);
+    },
+    () => sendForm(fd)
+  );
 }
 
+async function sendForm(fd){
+  await fetch("/api/add", {
+    method: "POST",
+    headers: { "access-code": accessCode },
+    body: fd
+  });
+
+  text.value = "";
+  img.value = "";
+  loadData();
+}
+
+/* ===== DELETE ENTRY ===== */
 function del(id){
   if(!confirm("Usunąć wpis?")) return;
-  fetch("/api/delete/"+id,{
-    method:"DELETE",
-    headers:{ "access-code": accessCode }
+
+  fetch("/api/delete/" + id, {
+    method: "DELETE",
+    headers: { "access-code": accessCode }
   }).then(loadData);
 }
 
+/* ===== RESET ===== */
 function resetAll(){
   if(!confirm("NA PEWNO wyzerować wszystko?")) return;
-  fetch("/api/reset",{
-    method:"POST",
-    headers:{ "access-code": accessCode }
+
+  fetch("/api/reset", {
+    method: "POST",
+    headers: { "access-code": accessCode }
   }).then(loadData);
 }
 
+/* ===== AUTO LOGIN ===== */
 if(accessCode) loadData();
 </script>
 
