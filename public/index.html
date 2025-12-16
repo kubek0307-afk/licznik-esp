@@ -66,6 +66,9 @@ async function loadData(){
   if(!res.ok){ alert("Zły kod"); return; }
 
   const data = await res.json();
+
+  console.log("HISTORIA:", data.history); // <-- TU JEST POPRAWNIE
+
   showApp();
 
   cLysy.innerText = data.lysy;
