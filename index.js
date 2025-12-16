@@ -26,13 +26,17 @@ cloudinary.config({
 /* ===== MULTER ===== */
 const storage = new CloudinaryStorage({
   cloudinary,
-  params: {
+  params: async (req, file) => ({
     folder: "licznik",
-    allowed_formats: ["jpg", "jpeg", "png"],
-    transformation: [{ width: 1280, crop: "limit" }, { quality: "auto:good" }]
-  }
+    format: "jpg",
+    transformation: [
+      { width: 1280, crop: "limit" },
+      { quality: "auto:eco" }
+    ]
+  })
 });
 const upload = multer({ storage });
+
 
 /* ===== DB ===== */
 mongoose.connect(MONGO_URI)
