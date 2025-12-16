@@ -7,7 +7,7 @@
 <style>
 body{background:#111;color:#eee;font-family:Arial;margin:0}
 .box{background:#1c1c1c;padding:12px;margin:12px;border-radius:8px}
-button{width:100%;padding:12px;margin-top:8px}
+button,input,textarea,select{width:100%;margin-top:8px;padding:10px}
 img{max-width:100%;border-radius:6px}
 a{color:#4fa3ff}
 </style>
@@ -59,35 +59,51 @@ function showApp(){
 }
 
 async function loadData(){
-  const r = await fetch("/api/data",{headers:{"access-code":accessCode}});
-  if(!r.ok){alert("Zły kod");return;}
-  const d = await r.json();
-  showApp();
-  cLysy.innerText=d.lysy;
-  cPawel.innerText=d.pawel;
+  const res = await fetch("/api/data", {
+    headers: { "access-code": accessCode }
+  });
+  if(!res.ok){ alert("Zły kod"); return; }
 
-  history.innerHTML="";
-  d.history.forEach(h=>{
-    history.innerHTML+=`
-      <div class="box">
-        <b>${h.person}</b> | ${h.date}<br>
-        ${h.text||""}
-        ${h.img?`<br><img src="${h.img}">`:""}
-        ${h.location?`<br><a target="_blank" href="https://maps.google.com?q=${h.location.lat},${h.location.lng}">📍 mapa</a>`:""}
-      </div>`;
+  const data = await res.json();
+  showApp();
+
+  cLysy.innerText = data.lysy;
+  cPawel.innerText = data.pawel;
+
+  history.innerHTML = "";
+  if(!data.history || data.history.length === 0){
+    history.innerHTML = "<i>Brak wpisów</i>";
+    return;
+  }
+
+  data.history.forEach(h=>{
+    const div = document.createElement("div");
+    div.className="box";
+    div.innerHTML = `
+      <b>${h.person}</b> | ${h.date}<br>
+      ${h.text || ""}
+      ${h.img ? `<br><img src="${h.img}">` : ""}
+      ${h.location ? `
+        <br>
+        <a target="_blank"
+           href="https://maps.google.com?q=${h.location.lat},${h.location.lng}">
+           📍 mapa
+        </a>` : ""}
+    `;
+    history.appendChild(div);
   });
 }
 
 function send(){
-  const fd=new FormData();
-  fd.append("person",person.value);
-  fd.append("text",text.value);
-  if(img.files[0]) fd.append("image",img.files[0]);
+  const fd = new FormData();
+  fd.append("person", person.value);
+  fd.append("text", text.value);
+  if(img.files[0]) fd.append("image", img.files[0]);
 
   navigator.geolocation.getCurrentPosition(
     p=>{
-      fd.append("lat",p.coords.latitude);
-      fd.append("lng",p.coords.longitude);
+      fd.append("lat", p.coords.latitude);
+      fd.append("lng", p.coords.longitude);
       sendForm(fd);
     },
     ()=>sendForm(fd)
@@ -95,8 +111,12 @@ function send(){
 }
 
 async function sendForm(fd){
-  await fetch("/api/add",{method:"POST",headers:{"access-code":accessCode},body:fd});
-  text.value="";img.value="";
+  await fetch("/api/add", {
+    method:"POST",
+    headers:{ "access-code": accessCode },
+    body: fd
+  });
+  text.value=""; img.value="";
   loadData();
 }
 
