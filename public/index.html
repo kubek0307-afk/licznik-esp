@@ -66,15 +66,15 @@ async function loadData(){
   if(!res.ok){ alert("Zły kod"); return; }
 
   const data = await res.json();
-
-  console.log("HISTORIA:", data.history); // <-- TU JEST POPRAWNIE
+  console.log("HISTORIA:", data.history);
 
   showApp();
 
   cLysy.innerText = data.lysy;
   cPawel.innerText = data.pawel;
 
-  history.innerHTML = "";
+  const historyDiv = document.getElementById("history");
+  historyDiv.innerHTML = "";
 
   data.history.forEach(h => {
     const div = document.createElement("div");
@@ -99,7 +99,7 @@ async function loadData(){
       <button onclick="del('${h._id}')">🗑️ Usuń</button>
     `;
 
-    history.appendChild(div);
+    historyDiv.appendChild(div);
   });
 }
 
