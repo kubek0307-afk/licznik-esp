@@ -13,6 +13,11 @@ const cloudinary = require("cloudinary").v2;
 const { CloudinaryStorage } = require("multer-storage-cloudinary");
 const multer = require("multer");
 
+cloudinary.config({
+  cloud_name: "dfvezuwt6",
+  api_key: "427148529627837",
+  api_secret: "5v4lkLY2D-aajzg8MnyosrcYhDo"
+});
 
 const ACCESS_CODE = "kutas";
 
