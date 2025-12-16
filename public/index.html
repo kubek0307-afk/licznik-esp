@@ -72,22 +72,30 @@ async function loadData(){
   cPawel.innerText = data.pawel;
 
   history.innerHTML = "";
+
   data.history.forEach(h => {
     const div = document.createElement("div");
     div.className = "box";
-    div.innerHTML = `
-      <b>${h.person}</b> | ${h.date}<br>
-      ${h.text || ""}
-      ${h.img ? `<br><img src="${h.img}">` : ""}
-      ${h.location ? `
+
+    let mapLink = "";
+    if (h.location && h.location.lat && h.location.lng) {
+      mapLink = `
         <br>
         <a target="_blank"
            href="https://maps.google.com?q=${h.location.lat},${h.location.lng}">
            📍 mapa
-        </a>` : ""}
+        </a>`;
+    }
+
+    div.innerHTML = `
+      <b>${h.person}</b> | ${h.date}<br>
+      ${h.text || ""}
+      ${h.img ? `<br><img src="${h.img}">` : ""}
+      ${mapLink}
       <br>
       <button onclick="del('${h._id}')">🗑️ Usuń</button>
     `;
+
     history.appendChild(div);
   });
 }
