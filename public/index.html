@@ -5,16 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Licznik</title>
 <style>
-body { margin:0; background:#111; color:#eee; font-family:Arial }
-.box { background:#1d1d1d; padding:12px; border-radius:8px; margin:12px }
-button { width:100%; padding:14px; margin-top:10px; font-size:16px;
-  background:#4f8cff; border:none; color:#fff; border-radius:6px }
-input, textarea, select {
-  width:100%; padding:10px; margin-top:6px;
-  border:none; border-radius:6px; background:#222; color:#fff
-}
-.record { border-bottom:1px solid #333; padding:8px 0 }
-img { max-width:100%; border-radius:6px; margin-top:6px }
+body{background:#111;color:#eee;font-family:Arial;margin:0}
+.box{background:#1c1c1c;padding:12px;margin:12px;border-radius:8px}
+button{width:100%;padding:12px;margin-top:8px}
+img{max-width:100%;border-radius:6px}
+a{color:#4fa3ff}
 </style>
 </head>
 <body>
@@ -26,27 +21,26 @@ img { max-width:100%; border-radius:6px; margin-top:6px }
 
 <div id="app" style="display:none">
 
-  <div class="box">
-    Lysy: <b id="cLysy">0</b><br>
-    Paweł: <b id="cPawel">0</b>
-  </div>
+<div class="box">
+  Lysy: <b id="cLysy">0</b><br>
+  Paweł: <b id="cPawel">0</b><br><br>
+  <a href="/map.html">🗺️ Zobacz mapę</a>
+</div>
 
-  <div class="box">
-    <select id="person">
-      <option value="lysy">Lysy</option>
-      <option value="pawel">Paweł</option>
-    </select>
+<div class="box">
+  <select id="person">
+    <option value="lysy">Lysy</option>
+    <option value="pawel">Paweł</option>
+  </select>
+  <textarea id="text" placeholder="Opis"></textarea>
+  <input type="file" id="img">
+  <button onclick="send()">Dodaj</button>
+</div>
 
-    <textarea id="text" placeholder="Opis"></textarea>
-    <input type="file" id="img">
-
-    <button onclick="send()">Dodaj</button>
-  </div>
-
-  <div class="box">
-    <h3>Historia</h3>
-    <div id="history"></div>
-  </div>
+<div class="box">
+  <h3>Historia</h3>
+  <div id="history"></div>
+</div>
 
 </div>
 
@@ -54,68 +48,59 @@ img { max-width:100%; border-radius:6px; margin-top:6px }
 let accessCode = localStorage.getItem("accessCode") || "";
 
 function login(){
-  accessCode = document.getElementById("codeInput").value;
+  accessCode = codeInput.value;
   localStorage.setItem("accessCode", accessCode);
   loadData();
 }
 
 function showApp(){
-  document.getElementById("loginBox").style.display = "none";
-  document.getElementById("app").style.display = "block";
+  loginBox.style.display="none";
+  app.style.display="block";
 }
 
 async function loadData(){
-  const res = await fetch("/api/data", {
-    headers: { "access-code": accessCode }
-  });
-
-  if (!res.ok) {
-    alert("Zły kod");
-    return;
-  }
-
-  const data = await res.json();
+  const r = await fetch("/api/data",{headers:{"access-code":accessCode}});
+  if(!r.ok){alert("Zły kod");return;}
+  const d = await r.json();
   showApp();
+  cLysy.innerText=d.lysy;
+  cPawel.innerText=d.pawel;
 
-  document.getElementById("cLysy").innerText  = data.lysy;
-  document.getElementById("cPawel").innerText = data.pawel;
-
-  let html = "";
-  for (const h of data.history) {
-    html += `
-      <div class="record">
+  history.innerHTML="";
+  d.history.forEach(h=>{
+    history.innerHTML+=`
+      <div class="box">
         <b>${h.person}</b> | ${h.date}<br>
-        ${h.text || ""}
-        ${h.img ? `<br><img src="${h.img}">` : ""}
-      </div>
-    `;
-  }
-
-  document.getElementById("history").innerHTML = html;
+        ${h.text||""}
+        ${h.img?`<br><img src="${h.img}">`:""}
+        ${h.location?`<br><a target="_blank" href="https://maps.google.com?q=${h.location.lat},${h.location.lng}">📍 mapa</a>`:""}
+      </div>`;
+  });
 }
 
-async function send(){
-  const fd = new FormData();
-  fd.append("person", document.getElementById("person").value);
-  fd.append("text", document.getElementById("text").value);
+function send(){
+  const fd=new FormData();
+  fd.append("person",person.value);
+  fd.append("text",text.value);
+  if(img.files[0]) fd.append("image",img.files[0]);
 
-  const img = document.getElementById("img");
-  if (img.files[0]) fd.append("image", img.files[0]);
+  navigator.geolocation.getCurrentPosition(
+    p=>{
+      fd.append("lat",p.coords.latitude);
+      fd.append("lng",p.coords.longitude);
+      sendForm(fd);
+    },
+    ()=>sendForm(fd)
+  );
+}
 
-  await fetch("/api/add", {
-    method: "POST",
-    headers: { "access-code": accessCode },
-    body: fd
-  });
-
-  document.getElementById("text").value = "";
-  document.getElementById("img").value = "";
-
+async function sendForm(fd){
+  await fetch("/api/add",{method:"POST",headers:{"access-code":accessCode},body:fd});
+  text.value="";img.value="";
   loadData();
 }
 
-if (accessCode) loadData();
+if(accessCode) loadData();
 </script>
-
 </body>
 </html>
