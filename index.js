@@ -28,18 +28,20 @@ const storage = new CloudinaryStorage({
   cloudinary,
   params: {
     folder: "licznik",
-    allowed_formats: ["jpg", "jpeg", "png"],
+    resource_type: "image",
     transformation: [
+      { fetch_format: "jpg" },   // ← KONWERSJA WSZYSTKIEGO DO JPG
       { width: 1280, crop: "limit" },
-      { quality: "auto:good" }
+      { quality: "auto:eco" }
     ]
   }
 });
 
 const upload = multer({
   storage,
-  limits: { fileSize: 5 * 1024 * 1024 } // 5MB
+  limits: { fileSize: 8 * 1024 * 1024 } // 8MB
 });
+
 
 /* ===== DB ===== */
 mongoose.connect(MONGO_URI)
