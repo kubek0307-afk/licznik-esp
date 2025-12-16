@@ -12,9 +12,9 @@ app.use(express.json());
 app.use(express.static("public"));
 
 /* ===== ENV ===== */
-const USER_CODE  = process.env.ACCESS_CODE;   
-const ADMIN_CODE = process.env.ADMIN_CODE;    
-const MONGO_URI  = process.env.MONGO_URI;
+const USER_CODE = process.env.ACCESS_CODE;      // kutas
+const ADMIN_CODE = process.env.ADMIN_CODE;      // kutasadmin
+const MONGO_URI = process.env.MONGO_URI;
 
 /* ===== CLOUDINARY ===== */
 cloudinary.config({
@@ -23,25 +23,19 @@ cloudinary.config({
   api_secret: process.env.CLOUD_API_SECRET
 });
 
-/* ===== MULTER + CLOUDINARY (STABILNE) ===== */
+/* ===== MULTER ===== */
 const storage = new CloudinaryStorage({
   cloudinary,
-  params: {
+  params: async () => ({
     folder: "licznik",
-    resource_type: "image",
+    format: "jpg",
     transformation: [
-      { fetch_format: "jpg" },   // ← KONWERSJA WSZYSTKIEGO DO JPG
-      { width: 1280, crop: "limit" },
+      { width: 800, crop: "limit" },
       { quality: "auto:eco" }
     ]
-  }
+  })
 });
-
-const upload = multer({
-  storage,
-  limits: { fileSize: 8 * 1024 * 1024 } // 8MB
-});
-
+const upload = multer({ storage });
 
 /* ===== DB ===== */
 mongoose.connect(MONGO_URI)
@@ -50,107 +44,111 @@ mongoose.connect(MONGO_URI)
 
 /* ===== MODELS ===== */
 const Entry = mongoose.model("Entry", new mongoose.Schema({
-  person: String,
+  type: String,           // lysy | pawel | poprawa
   text: String,
   img: String,
   date: String,
-  location: {
-    lat: Number,
-    lng: Number
-  }
+  location: { lat: Number, lng: Number }
 }));
 
 const Counter = mongoose.model("Counter", new mongoose.Schema({
   lysy: Number,
-  pawel: Number
+  pawel: Number,
+  poprawa: Number
 }));
 
-/* ===== INIT COUNTERS ===== */
+/* ===== INIT ===== */
 (async () => {
   const c = await Counter.findOne();
-  if (!c) await Counter.create({ lysy: 0, pawel: 0 });
+  if (!c) await Counter.create({ lysy: 0, pawel: 0, poprawa: 0 });
 })();
 
 /* ===== AUTH ===== */
 function auth(req, res, next) {
   const code = req.headers["access-code"];
-  if (code !== USER_CODE && code !== ADMIN_CODE) {
+  if (code !== USER_CODE && code !== ADMIN_CODE)
     return res.status(403).json({ error: "Forbidden" });
-  }
   req.isAdmin = code === ADMIN_CODE;
   next();
 }
 
 /* ===== API ===== */
-
-// ---- GET DATA ----
 app.get("/api/data", auth, async (req, res) => {
   const counter = await Counter.findOne();
   const history = await Entry.find().sort({ _id: -1 }).limit(100);
   res.json({
-    lysy: counter.lysy,
-    pawel: counter.pawel,
+    counter,
     history,
     isAdmin: req.isAdmin
   });
 });
 
-// ---- ADD ENTRY ----
+/* ===== ADD LYSY / PAWEL ===== */
 app.post("/api/add", auth, upload.single("image"), async (req, res) => {
   try {
-    const { person, text, lat, lng } = req.body;
-
+    const { type, text, lat, lng } = req.body;
     const counter = await Counter.findOne();
-    if (person === "lysy") counter.lysy++;
-    if (person === "pawel") counter.pawel++;
+
+    if (!["lysy", "pawel"].includes(type))
+      return res.status(400).json({ error: "Wrong type" });
+
+    counter[type]++;
     await counter.save();
 
     const entry = await Entry.create({
-      person,
+      type,
       text: text || "",
       img: req.file ? req.file.path : null,
       date: new Date().toLocaleString("pl-PL"),
-      location: (lat && lng) ? { lat, lng } : null
+      location: lat && lng ? { lat, lng } : null
     });
 
     res.json({ ok: true, entry });
-
-  } catch (err) {
-    console.error("❌ ADD ERROR:", err);
-    res.status(500).json({ error: "Add failed" });
+  } catch (e) {
+    res.status(500).json({ error: "add failed" });
   }
 });
 
-// ---- DELETE ENTRY (ADMIN) ----
-app.delete("/api/delete/:id", auth, async (req, res) => {
-  if (!req.isAdmin) {
+/* ===== ADD POPRAWA ===== */
+app.post("/api/poprawa/:id", auth, async (req, res) => {
+  if (!req.isAdmin)
     return res.status(403).json({ error: "Admin only" });
-  }
 
-  const entry = await Entry.findById(req.params.id);
-  if (!entry) return res.json({ ok: true });
+  const base = await Entry.findById(req.params.id);
+  if (!base) return res.json({ ok: true });
 
   const counter = await Counter.findOne();
-  if (entry.person === "lysy" && counter.lysy > 0) counter.lysy--;
-  if (entry.person === "pawel" && counter.pawel > 0) counter.pawel--;
+  counter.poprawa++;
   await counter.save();
+
+  const entry = await Entry.create({
+    type: "poprawa",
+    text: `POPRAWA: ${base.text || ""}`,
+    img: base.img,
+    date: new Date().toLocaleString("pl-PL"),
+    location: base.location || null
+  });
+
+  res.json({ ok: true, entry });
+});
+
+/* ===== DELETE ===== */
+app.delete("/api/delete/:id", auth, async (req, res) => {
+  if (!req.isAdmin) return res.status(403).json({ error: "Admin only" });
 
   await Entry.findByIdAndDelete(req.params.id);
   res.json({ ok: true });
 });
 
-// ---- RESET ALL (ADMIN) ----
+/* ===== RESET ===== */
 app.post("/api/reset", auth, async (req, res) => {
-  if (!req.isAdmin) {
-    return res.status(403).json({ error: "Admin only" });
-  }
-
+  if (!req.isAdmin) return res.status(403).json({ error: "Admin only" });
   await Entry.deleteMany({});
   const counter = await Counter.findOne();
   counter.lysy = 0;
   counter.pawel = 0;
+  counter.poprawa = 0;
   await counter.save();
-
   res.json({ ok: true });
 });
 
