@@ -1,105 +1,42 @@
-const express = require("express");
-const cors = require("cors");
-const mongoose = require("mongoose");
-const multer = require("multer");
-
-const cloudinary = require("cloudinary").v2;
-const { CloudinaryStorage } = require("multer-storage-cloudinary");
-
-const app = express();
-app.use(cors());
-app.use(express.json());
-app.use(express.static("public"));
-
-/* ===== CLOUDINARY ===== */
-cloudinary.config({
-  cloud_name: "dfvezuwt6",
-  api_key: "427148529627837",
-  api_secret: "5v4lkLY2D-aajzg8MnyosrcYhDo"
-});
-
-/* ===== MULTER + CLOUDINARY ===== */
-const storage = new CloudinaryStorage({
-  cloudinary,
-  params: {
-    folder: "licznik",
-    allowed_formats: ["jpg", "jpeg", "png"],
-    transformation: [
-      { width: 1280, crop: "limit" },
-      { quality: "auto:good" }
-    ]
-  }
-});
-const upload = multer({ storage });
-
-/* ===== CONFIG ===== */
-const ACCESS_CODE = "kutas";
-const MONGO_URI =
-  "mongodb+srv://admin:kubatokox664@cluster0.lry9ftq.mongodb.net/?retryWrites=true&w=majority";
-
-mongoose.connect(MONGO_URI)
-  .then(() => console.log("✅ MongoDB połączone"))
-  .catch(err => console.error("❌ MongoDB error:", err));
-
-/* ===== SCHEMAS ===== */
-const EntrySchema = new mongoose.Schema({
-  person: String,
-  text: String,
-  img: String,
-  date: String,
-  location: {
-    lat: Number,
-    lng: Number
-  }
-});
-
-const CounterSchema = new mongoose.Schema({
-  lysy: Number,
-  pawel: Number
-});
-
-const Entry = mongoose.model("Entry", EntrySchema);
-const Counter = mongoose.model("Counter", CounterSchema);
-
-/* ===== INIT COUNTERS ===== */
-async function initCounter() {
-  const c = await Counter.findOne();
-  if (!c) await Counter.create({ lysy: 0, pawel: 0 });
-}
-initCounter();
-
-/* ===== AUTH ===== */
-function checkAccess(req, res, next) {
-  const code = req.headers["access-code"] || req.body.accessCode;
-  if (code !== ACCESS_CODE) return res.status(403).json({ error: "Forbidden" });
-  next();
-}
-
-/* ===== API ===== */
-app.get("/api/data", checkAccess, async (req, res) => {
-  const counter = await Counter.findOne();
-  const history = await Entry.find().sort({ _id: -1 }).limit(100);
-  res.json({ lysy: counter.lysy, pawel: counter.pawel, history });
-});
-
-app.post("/api/add", checkAccess, upload.single("image"), async (req, res) => {
-  const { person, text, lat, lng } = req.body;
-
-  const counter = await Counter.findOne();
-  if (person === "lysy") counter.lysy++;
-  if (person === "pawel") counter.pawel++;
-  await counter.save();
-
-  const entry = await Entry.create({
-    person,
-    text: text || "",
-    img: req.file ? req.file.path : null,
-    date: new Date().toLocaleString("pl-PL"),
-    location: lat && lng ? { lat, lng } : null
+async function loadData(){
+  const res = await fetch("/api/data", {
+    headers: { "access-code": accessCode }
   });
 
-  res.json({ ok: true, entry });
-});
+  if (!res.ok) {
+    alert("Błąd pobierania danych");
+    return;
+  }
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log("✅ Server działa na porcie " + PORT));
+  const data = await res.json();
+
+  showApp();
+
+  document.getElementById("cLysy").innerText = data.lysy;
+  document.getElementById("cPawel").innerText = data.pawel;
+
+  const historyDiv = document.getElementById("history");
+  historyDiv.innerHTML = "";
+
+  if (!data.history || data.history.length === 0) {
+    historyDiv.innerHTML = "<i>Brak wpisów</i>";
+    return;
+  }
+
+  data.history.forEach(h => {
+    const div = document.createElement("div");
+    div.className = "box";
+    div.innerHTML = `
+      <b>${h.person}</b> | ${h.date}<br>
+      ${h.text || ""}
+      ${h.img ? `<br><img src="${h.img}">` : ""}
+      ${h.location ? `
+        <br>
+        <a target="_blank"
+           href="https://maps.google.com?q=${h.location.lat},${h.location.lng}">
+           📍 mapa
+        </a>` : ""}
+    `;
+    historyDiv.appendChild(div);
+  });
+}
