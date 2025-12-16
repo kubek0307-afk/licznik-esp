@@ -5,29 +5,55 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mapa wpisów</title>
 
+<!-- Leaflet -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
 <style>
-body{margin:0}
-#map{height:100vh}
+body {
+  margin: 0;
+  background: #111;
+  color: #eee;
+  font-family: Arial, sans-serif;
+}
+#map {
+  height: 100vh;
+  width: 100%;
+}
+.top {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  z-index: 1000;
+}
+.top a {
+  background: #1c1c1c;
+  color: #4fa3ff;
+  padding: 8px 12px;
+  border-radius: 6px;
+  text-decoration: none;
+}
 </style>
 </head>
 <body>
+
+<div class="top">
+  <a href="/">⬅ Powrót</a>
+</div>
 
 <div id="map"></div>
 
 <script>
 const accessCode = localStorage.getItem("accessCode");
 
-if(!accessCode){
+if (!accessCode) {
   alert("Najpierw zaloguj się na stronie głównej");
-  location.href="/";
+  location.href = "/";
 }
 
-const map = L.map('map').setView([52.2, 21.0], 6);
+const map = L.map("map").setView([52.2, 21.0], 6);
 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   attribution: "© OpenStreetMap"
 }).addTo(map);
 
@@ -35,15 +61,15 @@ fetch("/api/data", {
   headers: { "access-code": accessCode }
 })
 .then(r => r.json())
-.then(d => {
-  d.history.forEach(h => {
-    if(h.location && h.location.lat && h.location.lng){
+.then(data => {
+  data.history.forEach(h => {
+    if (h.location && h.location.lat && h.location.lng) {
       L.marker([h.location.lat, h.location.lng])
         .addTo(map)
         .bindPopup(`
           <b>${h.person}</b><br>
           ${h.text || ""}
-          ${h.img ? `<br><img src="${h.img}" style="width:150px">` : ""}
+          ${h.img ? `<br><img src="${h.img}" style="width:150px;border-radius:6px">` : ""}
         `);
     }
   });
