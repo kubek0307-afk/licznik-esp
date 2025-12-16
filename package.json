@@ -1,20 +1,16 @@
 {
   "name": "licznik-esp",
   "version": "1.0.0",
-  "main": "index.js",
+  "private": true,
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
-    "express": "^4.19.2",
-    "multer": "^1.4.4",
+    "cloudinary": "^1.41.2",
     "cors": "^2.8.5",
-    "mongoose": "^8.0.0"
-  },
-  {
-  "cloudinary": "^1.41.2",
-  "multer": "^1.4.5-lts.1",
-  "multer-storage-cloudinary": "^4.0.0"
-}
-
+    "express": "^4.19.2",
+    "mongoose": "^8.4.1",
+    "multer": "^1.4.5-lts.1",
+    "multer-storage-cloudinary": "^4.0.0"
+  }
 }
