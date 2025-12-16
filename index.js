@@ -12,7 +12,8 @@ app.use(express.json());
 app.use(express.static("public"));
 
 /* ===== ENV ===== */
-const ACCESS_CODE = process.env.ACCESS_CODE;
+const USER_CODE = process.env.ACCESS_CODE;        // kutas
+const ADMIN_CODE = process.env.ADMIN_CODE;        // kutasadmin
 const MONGO_URI = process.env.MONGO_URI;
 
 /* ===== CLOUDINARY ===== */
@@ -28,10 +29,7 @@ const storage = new CloudinaryStorage({
   params: {
     folder: "licznik",
     allowed_formats: ["jpg", "jpeg", "png"],
-    transformation: [
-      { width: 1280, crop: "limit" },
-      { quality: "auto:good" }
-    ]
+    transformation: [{ width: 1280, crop: "limit" }, { quality: "auto:good" }]
   }
 });
 const upload = multer({ storage });
@@ -47,10 +45,7 @@ const Entry = mongoose.model("Entry", new mongoose.Schema({
   text: String,
   img: String,
   date: String,
-  location: {
-    lat: Number,
-    lng: Number
-  }
+  location: { lat: Number, lng: Number }
 }));
 
 const Counter = mongoose.model("Counter", new mongoose.Schema({
@@ -65,22 +60,27 @@ const Counter = mongoose.model("Counter", new mongoose.Schema({
 })();
 
 /* ===== AUTH ===== */
-function checkAccess(req, res, next) {
-  const code = req.headers["access-code"] || req.body.accessCode;
-  if (code !== ACCESS_CODE) {
+function auth(req, res, next) {
+  const code = req.headers["access-code"];
+  if (code !== USER_CODE && code !== ADMIN_CODE)
     return res.status(403).json({ error: "Forbidden" });
-  }
+  req.isAdmin = code === ADMIN_CODE;
   next();
 }
 
 /* ===== API ===== */
-app.get("/api/data", checkAccess, async (req, res) => {
+app.get("/api/data", auth, async (req, res) => {
   const counter = await Counter.findOne();
   const history = await Entry.find().sort({ _id: -1 }).limit(100);
-  res.json({ lysy: counter.lysy, pawel: counter.pawel, history });
+  res.json({
+    lysy: counter.lysy,
+    pawel: counter.pawel,
+    history,
+    isAdmin: req.isAdmin
+  });
 });
 
-app.post("/api/add", checkAccess, upload.single("image"), async (req, res) => {
+app.post("/api/add", auth, upload.single("image"), async (req, res) => {
   const { person, text, lat, lng } = req.body;
 
   const counter = await Counter.findOne();
@@ -99,13 +99,35 @@ app.post("/api/add", checkAccess, upload.single("image"), async (req, res) => {
   res.json({ ok: true, entry });
 });
 
-app.delete("/api/delete/:id", checkAccess, async (req, res) => {
+/* ===== DELETE ENTRY (ADMIN) ===== */
+app.delete("/api/delete/:id", auth, async (req, res) => {
+  if (!req.isAdmin) return res.status(403).json({ error: "Admin only" });
+
+  const entry = await Entry.findById(req.params.id);
+  if (!entry) return res.json({ ok: true });
+
+  const counter = await Counter.findOne();
+  if (entry.person === "lysy" && counter.lysy > 0) counter.lysy--;
+  if (entry.person === "pawel" && counter.pawel > 0) counter.pawel--;
+  await counter.save();
+
   await Entry.findByIdAndDelete(req.params.id);
+  res.json({ ok: true });
+});
+
+/* ===== RESET (ADMIN) ===== */
+app.post("/api/reset", auth, async (req, res) => {
+  if (!req.isAdmin) return res.status(403).json({ error: "Admin only" });
+
+  await Entry.deleteMany({});
+  const counter = await Counter.findOne();
+  counter.lysy = 0;
+  counter.pawel = 0;
+  await counter.save();
+
   res.json({ ok: true });
 });
 
 /* ===== START ===== */
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () =>
-  console.log("✅ Server działa na porcie " + PORT)
-);
+app.listen(PORT, () => console.log("✅ Server działa na porcie " + PORT));
