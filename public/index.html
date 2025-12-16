@@ -9,6 +9,7 @@ body{background:#111;color:#eee;font-family:Arial;margin:0}
 .box{background:#1c1c1c;padding:12px;margin:12px;border-radius:8px}
 button,input,textarea,select{width:100%;margin-top:8px;padding:10px}
 img{max-width:100%;border-radius:6px}
+a{color:#4fa3ff}
 </style>
 </head>
 <body>
@@ -22,7 +23,8 @@ img{max-width:100%;border-radius:6px}
 
 <div class="box">
   Lysy: <b id="cLysy">0</b><br>
-  Paweł: <b id="cPawel">0</b>
+  Paweł: <b id="cPawel">0</b><br><br>
+  <a href="/map.html">🗺️ Zobacz mapę</a>
 </div>
 
 <div class="box">
@@ -46,14 +48,14 @@ img{max-width:100%;border-radius:6px}
 let accessCode = localStorage.getItem("accessCode") || "";
 
 function login(){
-  accessCode = document.getElementById("codeInput").value;
+  accessCode = codeInput.value;
   localStorage.setItem("accessCode", accessCode);
   loadData();
 }
 
 function showApp(){
-  document.getElementById("loginBox").style.display="none";
-  document.getElementById("app").style.display="block";
+  loginBox.style.display="none";
+  app.style.display="block";
 }
 
 async function loadData(){
@@ -61,20 +63,15 @@ async function loadData(){
     headers: { "access-code": accessCode }
   });
 
-  if(!res.ok){
-    alert("Zły kod");
-    return;
-  }
+  if(!res.ok){ alert("Zły kod"); return; }
 
   const data = await res.json();
   showApp();
 
-  document.getElementById("cLysy").innerText = data.lysy;
-  document.getElementById("cPawel").innerText = data.pawel;
+  cLysy.innerText = data.lysy;
+  cPawel.innerText = data.pawel;
 
-  const historyDiv = document.getElementById("history");
-  historyDiv.innerHTML = "";
-
+  history.innerHTML = "";
   data.history.forEach(h => {
     const div = document.createElement("div");
     div.className = "box";
@@ -82,27 +79,51 @@ async function loadData(){
       <b>${h.person}</b> | ${h.date}<br>
       ${h.text || ""}
       ${h.img ? `<br><img src="${h.img}">` : ""}
+      ${h.location ? `
+        <br>
+        <a target="_blank"
+           href="https://maps.google.com?q=${h.location.lat},${h.location.lng}">
+           📍 mapa
+        </a>` : ""}
+      <br>
+      <button onclick="del('${h._id}')">🗑️ Usuń</button>
     `;
-    historyDiv.appendChild(div);
+    history.appendChild(div);
   });
 }
 
 function send(){
   const fd = new FormData();
-  fd.append("person", document.getElementById("person").value);
-  fd.append("text", document.getElementById("text").value);
-  if(document.getElementById("img").files[0])
-    fd.append("image", document.getElementById("img").files[0]);
+  fd.append("person", person.value);
+  fd.append("text", text.value);
+  if(img.files[0]) fd.append("image", img.files[0]);
 
-  fetch("/api/add", {
+  navigator.geolocation.getCurrentPosition(
+    p=>{
+      fd.append("lat", p.coords.latitude);
+      fd.append("lng", p.coords.longitude);
+      sendForm(fd);
+    },
+    ()=>sendForm(fd)
+  );
+}
+
+async function sendForm(fd){
+  await fetch("/api/add", {
     method:"POST",
     headers:{ "access-code": accessCode },
     body: fd
-  }).then(() => {
-    document.getElementById("text").value="";
-    document.getElementById("img").value="";
-    loadData();
   });
+  text.value=""; img.value="";
+  loadData();
+}
+
+function del(id){
+  if(!confirm("Usunąć wpis?")) return;
+  fetch("/api/delete/" + id, {
+    method: "DELETE",
+    headers: { "access-code": accessCode }
+  }).then(() => loadData());
 }
 
 if(accessCode) loadData();
