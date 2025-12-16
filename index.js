@@ -1,4 +1,4 @@
-require("dotenv").config(); // lokalnie OK, na Render nie przeszkadza
+
 
 const express = require("express");
 const cors = require("cors");
