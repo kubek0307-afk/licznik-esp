@@ -12,9 +12,9 @@ app.use(express.json());
 app.use(express.static("public"));
 
 /* ===== ENV ===== */
-const USER_CODE = process.env.ACCESS_CODE;      // kutas
-const ADMIN_CODE = process.env.ADMIN_CODE;      // kutasadmin
-const MONGO_URI = process.env.MONGO_URI;
+const USER_CODE  = process.env.ACCESS_CODE;   // kutas
+const ADMIN_CODE = process.env.ADMIN_CODE;    // kutasadmin
+const MONGO_URI  = process.env.MONGO_URI;
 
 /* ===== CLOUDINARY ===== */
 cloudinary.config({
@@ -44,7 +44,7 @@ mongoose.connect(MONGO_URI)
 
 /* ===== MODELS ===== */
 const Entry = mongoose.model("Entry", new mongoose.Schema({
-  type: String,           // lysy | pawel | poprawa
+  type: String,                 // lysy | pawel | poprawa
   text: String,
   img: String,
   date: String,
@@ -76,23 +76,22 @@ function auth(req, res, next) {
 app.get("/api/data", auth, async (req, res) => {
   const counter = await Counter.findOne();
   const history = await Entry.find().sort({ _id: -1 }).limit(100);
-  res.json({
-    counter,
-    history,
-    isAdmin: req.isAdmin
-  });
+  res.json({ counter, history, isAdmin: req.isAdmin });
 });
 
-/* ===== ADD LYSY / PAWEL ===== */
+/* ===== ADD ENTRY ===== */
 app.post("/api/add", auth, upload.single("image"), async (req, res) => {
   try {
     const { type, text, lat, lng } = req.body;
     const counter = await Counter.findOne();
 
-    if (!["lysy", "pawel"].includes(type))
+    if (!["lysy", "pawel", "poprawa"].includes(type))
       return res.status(400).json({ error: "Wrong type" });
 
-    counter[type]++;
+    if (type === "lysy") counter.lysy++;
+    if (type === "pawel") counter.pawel++;
+    if (type === "poprawa") counter.poprawa++;
+
     await counter.save();
 
     const entry = await Entry.create({
@@ -105,42 +104,19 @@ app.post("/api/add", auth, upload.single("image"), async (req, res) => {
 
     res.json({ ok: true, entry });
   } catch (e) {
+    console.error(e);
     res.status(500).json({ error: "add failed" });
   }
 });
 
-/* ===== ADD POPRAWA ===== */
-app.post("/api/poprawa/:id", auth, async (req, res) => {
-  if (!req.isAdmin)
-    return res.status(403).json({ error: "Admin only" });
-
-  const base = await Entry.findById(req.params.id);
-  if (!base) return res.json({ ok: true });
-
-  const counter = await Counter.findOne();
-  counter.poprawa++;
-  await counter.save();
-
-  const entry = await Entry.create({
-    type: "poprawa",
-    text: `POPRAWA: ${base.text || ""}`,
-    img: base.img,
-    date: new Date().toLocaleString("pl-PL"),
-    location: base.location || null
-  });
-
-  res.json({ ok: true, entry });
-});
-
-/* ===== DELETE ===== */
+/* ===== DELETE (ADMIN) ===== */
 app.delete("/api/delete/:id", auth, async (req, res) => {
   if (!req.isAdmin) return res.status(403).json({ error: "Admin only" });
-
   await Entry.findByIdAndDelete(req.params.id);
   res.json({ ok: true });
 });
 
-/* ===== RESET ===== */
+/* ===== RESET (ADMIN) ===== */
 app.post("/api/reset", auth, async (req, res) => {
   if (!req.isAdmin) return res.status(403).json({ error: "Admin only" });
   await Entry.deleteMany({});
