@@ -4,84 +4,49 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Licznik</title>
-
 <style>
-body{
-  background:#111;
-  color:#eee;
-  font-family:Arial, sans-serif;
-  margin:0;
-}
-.box{
-  background:#1c1c1c;
-  padding:12px;
-  margin:12px;
-  border-radius:8px;
-}
-button,input,textarea,select{
-  width:100%;
-  margin-top:8px;
-  padding:10px;
-}
-img{
-  max-width:100%;
-  border-radius:6px;
-}
-a{
-  color:#4fa3ff;
-  text-decoration:none;
-}
-.admin{
-  background:#5b0000;
-}
-.link-btn{
-  display:inline-block;
-  padding:10px 14px;
-  background:#1c1c1c;
-  border-radius:6px;
-  margin-top:10px;
-}
+body{background:#111;color:#eee;font-family:Arial;margin:0}
+.box{background:#1c1c1c;padding:12px;margin:12px;border-radius:8px}
+button,input,textarea,select{width:100%;margin-top:8px;padding:8px}
+img{max-width:160px;border-radius:6px;margin-top:6px}
+.admin{background:#5b0000}
+.tag{font-size:12px;padding:2px 6px;border-radius:4px}
+.lysy{background:#2a7}
+.pawel{background:#27a}
+.poprawa{background:#a72}
 </style>
 </head>
-
 <body>
 
-<!-- ===== LOGIN ===== -->
 <div class="box" id="loginBox">
   <input id="codeInput" type="password" placeholder="Hasło">
   <button onclick="login()">Zaloguj</button>
 </div>
 
-<!-- ===== APP ===== -->
 <div id="app" style="display:none">
 
-<!-- ===== COUNTERS + MAP ===== -->
 <div class="box">
   Lysy: <b id="cLysy">0</b><br>
-  Paweł: <b id="cPawel">0</b><br><br>
-
-  <a href="/map.html" class="link-btn">🗺️ Zobacz mapę</a>
+  Paweł: <b id="cPawel">0</b><br>
+  Poprawa: <b id="cPoprawa">0</b><br><br>
+  <a href="/map.html">🗺️ Mapa</a>
 </div>
 
-<!-- ===== ADMIN PANEL ===== -->
 <div class="box admin" id="adminPanel" style="display:none">
-  <b>ADMIN</b><br>
+  <b>ADMIN</b>
   <button onclick="resetAll()">⚠️ WYZERUJ WSZYSTKO</button>
 </div>
 
-<!-- ===== ADD ENTRY ===== -->
 <div class="box">
-  <select id="person">
+  <select id="type">
     <option value="lysy">Lysy</option>
     <option value="pawel">Paweł</option>
   </select>
-
   <textarea id="text" placeholder="Opis"></textarea>
   <input type="file" id="img">
   <button onclick="send()">Dodaj</button>
 </div>
 
-<!-- ===== HISTORY ===== -->
 <div class="box">
   <h3>Historia</h3>
   <div id="historyDiv"></div>
@@ -90,105 +55,77 @@ a{
 </div>
 
 <script>
-let accessCode = localStorage.getItem("accessCode") || "";
-let isAdmin = false;
+let accessCode="", isAdmin=false;
 
-/* ===== LOGIN ===== */
 function login(){
   accessCode = codeInput.value;
   localStorage.setItem("accessCode", accessCode);
   loadData();
 }
 
-/* ===== LOAD DATA ===== */
 async function loadData(){
-  const res = await fetch("/api/data", {
-    headers: { "access-code": accessCode }
-  });
+  const res = await fetch("/api/data",{ headers:{ "access-code": accessCode }});
+  if(!res.ok){ alert("Złe hasło"); return; }
 
-  if(!res.ok){
-    alert("Złe hasło");
-    return;
-  }
+  const d = await res.json();
+  isAdmin = d.isAdmin;
 
-  const data = await res.json();
-  isAdmin = data.isAdmin;
-
-  loginBox.style.display = "none";
-  app.style.display = "block";
+  loginBox.style.display="none";
+  app.style.display="block";
   adminPanel.style.display = isAdmin ? "block" : "none";
 
-  cLysy.innerText = data.lysy;
-  cPawel.innerText = data.pawel;
+  cLysy.innerText = d.counter.lysy;
+  cPawel.innerText = d.counter.pawel;
+  cPoprawa.innerText = d.counter.poprawa;
 
-  historyDiv.innerHTML = "";
-
-  data.history.forEach(h => {
-    const div = document.createElement("div");
-    div.className = "box";
-
-    div.innerHTML = `
-      <b>${h.person}</b> | ${h.date}<br>
-      ${h.text || ""}
-      ${h.img ? `<br><img src="${h.img}">` : ""}
-      ${isAdmin ? `<br><button onclick="del('${h._id}')">🗑️ Usuń</button>` : ""}
+  historyDiv.innerHTML="";
+  d.history.forEach(h=>{
+    const el=document.createElement("div");
+    el.className="box";
+    el.innerHTML=`
+      <span class="tag ${h.type}">${h.type}</span> ${h.date}<br>
+      ${h.text||""}
+      ${h.img?`<img src="${h.img}">`:""}
+      ${isAdmin && h.type!=="poprawa" ? `
+        <br><button onclick="poprawa('${h._id}')">🔄 Poprawa</button>
+      `:""}
     `;
-
-    historyDiv.appendChild(div);
+    historyDiv.appendChild(el);
   });
 }
 
-/* ===== ADD ENTRY ===== */
 function send(){
-  const fd = new FormData();
-  fd.append("person", person.value);
-  fd.append("text", text.value);
-  if(img.files[0]) fd.append("image", img.files[0]);
+  const fd=new FormData();
+  fd.append("type",type.value);
+  fd.append("text",text.value);
+  if(img.files[0]) fd.append("image",img.files[0]);
 
   navigator.geolocation.getCurrentPosition(
-    pos => {
-      fd.append("lat", pos.coords.latitude);
-      fd.append("lng", pos.coords.longitude);
-      sendForm(fd);
-    },
-    () => sendForm(fd)
+    p=>{ fd.append("lat",p.coords.latitude); fd.append("lng",p.coords.longitude); sendForm(fd); },
+    ()=>sendForm(fd)
   );
 }
 
-async function sendForm(fd){
-  await fetch("/api/add", {
-    method: "POST",
-    headers: { "access-code": accessCode },
-    body: fd
-  });
+function sendForm(fd){
+  fetch("/api/add",{ method:"POST", headers:{ "access-code": accessCode }, body:fd })
+    .then(loadData);
+}
 
-  text.value = "";
-  img.value = "";
+function poprawa(id){
+  fetch("/api/poprawa/"+id,{ method:"POST", headers:{ "access-code": accessCode }})
+    .then(loadData);
+}
+
+function resetAll(){
+  if(confirm("WYZEROWAĆ WSZYSTKO?"))
+    fetch("/api/reset",{ method:"POST", headers:{ "access-code": accessCode }})
+      .then(loadData);
+}
+
+if(localStorage.getItem("accessCode")){
+  accessCode = localStorage.getItem("accessCode");
   loadData();
 }
-
-/* ===== DELETE ENTRY ===== */
-function del(id){
-  if(!confirm("Usunąć wpis?")) return;
-
-  fetch("/api/delete/" + id, {
-    method: "DELETE",
-    headers: { "access-code": accessCode }
-  }).then(loadData);
-}
-
-/* ===== RESET ===== */
-function resetAll(){
-  if(!confirm("NA PEWNO wyzerować wszystko?")) return;
-
-  fetch("/api/reset", {
-    method: "POST",
-    headers: { "access-code": accessCode }
-  }).then(loadData);
-}
-
-/* ===== AUTO LOGIN ===== */
-if(accessCode) loadData();
 </script>
 
 </body>
