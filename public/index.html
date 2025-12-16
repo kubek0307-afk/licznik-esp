@@ -9,7 +9,6 @@ body{background:#111;color:#eee;font-family:Arial;margin:0}
 .box{background:#1c1c1c;padding:12px;margin:12px;border-radius:8px}
 button,input,textarea,select{width:100%;margin-top:8px;padding:10px}
 img{max-width:100%;border-radius:6px}
-a{color:#4fa3ff}
 </style>
 </head>
 <body>
@@ -23,8 +22,7 @@ a{color:#4fa3ff}
 
 <div class="box">
   Lysy: <b id="cLysy">0</b><br>
-  Paweł: <b id="cPawel">0</b><br><br>
-  <a href="/map.html">🗺️ Zobacz mapę</a>
+  Paweł: <b id="cPawel">0</b>
 </div>
 
 <div class="box">
@@ -62,7 +60,11 @@ async function loadData(){
   const res = await fetch("/api/data", {
     headers: { "access-code": accessCode }
   });
-  if(!res.ok){ alert("Zły kod"); return; }
+
+  if(!res.ok){
+    alert("Zły kod");
+    return;
+  }
 
   const data = await res.json();
   showApp();
@@ -71,24 +73,19 @@ async function loadData(){
   cPawel.innerText = data.pawel;
 
   history.innerHTML = "";
+
   if(!data.history || data.history.length === 0){
     history.innerHTML = "<i>Brak wpisów</i>";
     return;
   }
 
-  data.history.forEach(h=>{
+  data.history.forEach(h => {
     const div = document.createElement("div");
-    div.className="box";
+    div.className = "box";
     div.innerHTML = `
       <b>${h.person}</b> | ${h.date}<br>
       ${h.text || ""}
       ${h.img ? `<br><img src="${h.img}">` : ""}
-      ${h.location ? `
-        <br>
-        <a target="_blank"
-           href="https://maps.google.com?q=${h.location.lat},${h.location.lng}">
-           📍 mapa
-        </a>` : ""}
     `;
     history.appendChild(div);
   });
@@ -100,27 +97,19 @@ function send(){
   fd.append("text", text.value);
   if(img.files[0]) fd.append("image", img.files[0]);
 
-  navigator.geolocation.getCurrentPosition(
-    p=>{
-      fd.append("lat", p.coords.latitude);
-      fd.append("lng", p.coords.longitude);
-      sendForm(fd);
-    },
-    ()=>sendForm(fd)
-  );
-}
-
-async function sendForm(fd){
-  await fetch("/api/add", {
+  fetch("/api/add", {
     method:"POST",
     headers:{ "access-code": accessCode },
     body: fd
+  }).then(() => {
+    text.value="";
+    img.value="";
+    loadData();
   });
-  text.value=""; img.value="";
-  loadData();
 }
 
 if(accessCode) loadData();
 </script>
+
 </body>
 </html>
