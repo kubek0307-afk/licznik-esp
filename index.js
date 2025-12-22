@@ -12,8 +12,8 @@ app.use(express.json());
 app.use(express.static("public"));
 
 /* ===== ENV ===== */
-const USER_CODE  = process.env.ACCESS_CODE;   // kutas
-const ADMIN_CODE = process.env.ADMIN_CODE;    // kutasadmin
+const USER_CODE  = process.env.ACCESS_CODE || "kutas";
+const ADMIN_CODE = process.env.ADMIN_CODE || "kutasadmin";
 const MONGO_URI  = process.env.MONGO_URI;
 
 /* ===== CLOUDINARY ===== */
@@ -59,7 +59,7 @@ const Counter = mongoose.model("Counter", new mongoose.Schema({
   poprawa: Number
 }));
 
-/* ===== INIT ===== */
+/* ===== INIT LICZNIK ===== */
 (async () => {
   const c = await Counter.findOne();
   if (!c) await Counter.create({ lysy: 0, pawel: 0, poprawa: 0 });
@@ -80,7 +80,7 @@ function getPublicId(url){
   return p[p.length - 1].split(".")[0];
 }
 
-/* ===== API ===== */
+/* ===== API DATA ===== */
 app.get("/api/data", auth, async (req, res) => {
   const counter = await Counter.findOne();
   const history = await Entry.find().sort({ _id: -1 });
@@ -134,9 +134,9 @@ app.delete("/api/post/:id", auth, async (req, res) => {
     if (!post) return res.json({ ok: true });
 
     const counter = await Counter.findOne();
-    if (post.type === "lysy") counter.lysy--;
-    if (post.type === "pawel") counter.pawel--;
-    if (post.type === "poprawa") counter.poprawa--;
+    if (post.type === "lysy") counter.lysy = Math.max(0, counter.lysy - 1);
+    if (post.type === "pawel") counter.pawel = Math.max(0, counter.pawel - 1);
+    if (post.type === "poprawa") counter.poprawa = Math.max(0, counter.poprawa - 1);
     await counter.save();
 
     if (post.image)
@@ -151,6 +151,25 @@ app.delete("/api/post/:id", auth, async (req, res) => {
   } catch (e) {
     console.error("DELETE ERROR:", e);
     res.status(500).json({ error: "delete failed" });
+  }
+});
+
+/* ===== RESET LICZNIKÓW (ADMIN) ===== */
+app.post("/api/reset", auth, async (req, res) => {
+  try {
+    if (!req.isAdmin)
+      return res.status(403).json({ error: "Admin only" });
+
+    await Counter.updateMany({}, {
+      lysy: 0,
+      pawel: 0,
+      poprawa: 0
+    });
+
+    res.json({ ok: true });
+  } catch (e) {
+    console.error("RESET ERROR:", e);
+    res.status(500).json({ error: "reset failed" });
   }
 });
 
