@@ -43,6 +43,14 @@ button,input,textarea,select{width:100%;margin-top:8px;padding:8px}
 .lysy{background:#2a7}
 .pawel{background:#27a}
 .poprawa{background:#a72}
+
+.adminBtn{
+  margin-top:6px;
+  background:#a33;
+  border:none;
+  color:white;
+  cursor:pointer;
+}
 </style>
 </head>
 <body>
@@ -73,7 +81,7 @@ button,input,textarea,select{width:100%;margin-top:8px;padding:8px}
   <label>Zdjęcie tła</label>
   <input type="file" id="img" accept="image/*">
 
-  <label>Galeria (opcjonalnie)</label>
+  <label>Galeria</label>
   <input type="file" id="gallery" multiple accept="image/*">
 
   <button onclick="send()">Dodaj</button>
@@ -88,6 +96,7 @@ button,input,textarea,select{width:100%;margin-top:8px;padding:8px}
 
 <script>
 let accessCode="";
+let isAdmin=false;
 
 function login(){
   accessCode = codeInput.value;
@@ -99,6 +108,7 @@ async function load(){
   const r = await fetch("/api/data",{ headers:{ "access-code": accessCode }});
   if(!r.ok){ alert("Złe hasło"); return; }
   const d = await r.json();
+  isAdmin = d.isAdmin;
 
   loginBox.style.display="none";
   app.style.display="block";
@@ -119,6 +129,11 @@ async function load(){
         <span class="tag ${p.type}">${p.type}</span>
         <h4>${p.title || ""}</h4>
         <small>${p.date}</small>
+
+        ${isAdmin ? `
+          <button class="adminBtn"
+            onclick="del('${p._id}', event)">🗑 Usuń</button>
+        ` : ""}
       </div>
     `;
     posts.appendChild(el);
@@ -134,15 +149,17 @@ function send(){
   if (img.files[0]) fd.append("image", img.files[0]);
   [...gallery.files].forEach(f=>fd.append("gallery",f));
 
-  navigator.geolocation.getCurrentPosition(
-    p=>{ fd.append("lat",p.coords.latitude); fd.append("lng",p.coords.longitude); submit(fd); },
-    ()=>submit(fd)
-  );
-}
-
-function submit(fd){
   fetch("/api/add",{ method:"POST", headers:{ "access-code": accessCode }, body:fd })
     .then(load);
+}
+
+function del(id,e){
+  e.stopPropagation();
+  if(!confirm("Usunąć post?")) return;
+  fetch("/api/post/"+id,{
+    method:"DELETE",
+    headers:{ "access-code": accessCode }
+  }).then(load);
 }
 
 if(localStorage.getItem("accessCode")){
