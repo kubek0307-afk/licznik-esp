@@ -5,12 +5,7 @@
 <title>Post</title>
 <style>
 body{background:#111;color:#eee;font-family:Arial}
-.gallery{
-  display:grid;
-  grid-template-columns:repeat(auto-fill,minmax(200px,1fr));
-  gap:10px;
-}
-.gallery img{width:100%;border-radius:6px}
+img{max-width:100%;border-radius:8px}
 </style>
 </head>
 <body>
@@ -28,12 +23,11 @@ fetch("/api/data",{ headers:{ "access-code":accessCode }})
   const p=d.history.find(x=>x._id===id);
   if(!p) return;
   post.innerHTML=`
-    <h2>${p.type}</h2>
-    <p>${p.text||""}</p>
+    <span class="tag ${p.type}">${p.type}</span>
+    <h2>${p.title || ""}</h2>
+    <p>${p.text || ""}</p>
     <p>${p.date}</p>
-    <div class="gallery">
-      ${p.images.map(i=>`<img src="${i}">`).join("")}
-    </div>
+    ${p.image ? `<img src="${p.image}">` : ""}
   `;
 });
 </script>
