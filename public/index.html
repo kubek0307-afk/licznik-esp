@@ -2,14 +2,29 @@
 <html lang="pl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Licznik</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
 body{background:#111;color:#eee;font-family:Arial;margin:0}
 .box{background:#1c1c1c;padding:12px;margin:12px;border-radius:8px}
 button,input,textarea,select{width:100%;margin-top:8px;padding:8px}
-img{max-width:160px;border-radius:6px;margin-top:6px}
-.admin{background:#5b0000}
+#posts{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
+  gap:12px;
+}
+.card{
+  background:#1c1c1c;
+  border-radius:8px;
+  padding:8px;
+  cursor:pointer;
+}
+.card img{
+  width:100%;
+  height:150px;
+  object-fit:cover;
+  border-radius:6px;
+}
 .tag{font-size:12px;padding:2px 6px;border-radius:4px}
 .lysy{background:#2a7}
 .pawel{background:#27a}
@@ -28,13 +43,7 @@ img{max-width:160px;border-radius:6px;margin-top:6px}
 <div class="box">
   Lysy: <b id="cLysy">0</b><br>
   Paweł: <b id="cPawel">0</b><br>
-  Poprawa: <b id="cPoprawa">0</b><br><br>
-  <a href="/map.html">🗺️ Mapa</a>
-</div>
-
-<div class="box admin" id="adminPanel" style="display:none">
-  <b>ADMIN</b>
-  <button onclick="resetAll()">⚠️ WYZERUJ WSZYSTKO</button>
+  Poprawa: <b id="cPoprawa">0</b><br>
 </div>
 
 <div class="box">
@@ -44,52 +53,49 @@ img{max-width:160px;border-radius:6px;margin-top:6px}
     <option value="poprawa">Poprawa</option>
   </select>
   <textarea id="text" placeholder="Opis"></textarea>
-  <input type="file" id="img">
+  <input type="file" id="img" multiple>
   <button onclick="send()">Dodaj</button>
 </div>
 
 <div class="box">
-  <h3>Historia</h3>
-  <div id="historyDiv"></div>
+  <h3>Posty</h3>
+  <div id="posts"></div>
 </div>
 
 </div>
 
 <script>
-let accessCode="", isAdmin=false;
+let accessCode="";
 
 function login(){
   accessCode = codeInput.value;
   localStorage.setItem("accessCode", accessCode);
-  loadData();
+  load();
 }
 
-async function loadData(){
-  const res = await fetch("/api/data",{ headers:{ "access-code": accessCode }});
-  if(!res.ok){ alert("Złe hasło"); return; }
-
-  const d = await res.json();
-  isAdmin = d.isAdmin;
+async function load(){
+  const r = await fetch("/api/data",{ headers:{ "access-code": accessCode }});
+  if(!r.ok){ alert("Złe hasło"); return; }
+  const d = await r.json();
 
   loginBox.style.display="none";
   app.style.display="block";
-  adminPanel.style.display = isAdmin ? "block" : "none";
 
   cLysy.innerText = d.counter.lysy;
   cPawel.innerText = d.counter.pawel;
   cPoprawa.innerText = d.counter.poprawa;
 
-  historyDiv.innerHTML="";
-  d.history.forEach(h=>{
-    const t = h.type || "lysy"; // zabezpieczenie na stare wpisy
+  posts.innerHTML="";
+  d.history.forEach(p=>{
     const el=document.createElement("div");
-    el.className="box";
+    el.className="card";
+    el.onclick=()=>location.href=`/post.html?id=${p._id}`;
     el.innerHTML=`
-      <span class="tag ${t}">${t}</span> ${h.date}<br>
-      ${h.text||""}
-      ${h.img?`<img src="${h.img}">`:""}
+      <span class="tag ${p.type}">${p.type}</span><br>
+      ${p.images[0]?`<img src="${p.images[0]}">`:""}
+      <small>${p.date}</small>
     `;
-    historyDiv.appendChild(el);
+    posts.appendChild(el);
   });
 }
 
@@ -97,28 +103,22 @@ function send(){
   const fd=new FormData();
   fd.append("type",type.value);
   fd.append("text",text.value);
-  if(img.files[0]) fd.append("image",img.files[0]);
+  [...img.files].forEach(f=>fd.append("images",f));
 
   navigator.geolocation.getCurrentPosition(
-    p=>{ fd.append("lat",p.coords.latitude); fd.append("lng",p.coords.longitude); sendForm(fd); },
-    ()=>sendForm(fd)
+    p=>{ fd.append("lat",p.coords.latitude); fd.append("lng",p.coords.longitude); submit(fd); },
+    ()=>submit(fd)
   );
 }
 
-function sendForm(fd){
+function submit(fd){
   fetch("/api/add",{ method:"POST", headers:{ "access-code": accessCode }, body:fd })
-    .then(loadData);
-}
-
-function resetAll(){
-  if(confirm("WYZEROWAĆ WSZYSTKO?"))
-    fetch("/api/reset",{ method:"POST", headers:{ "access-code": accessCode }})
-      .then(loadData);
+    .then(load);
 }
 
 if(localStorage.getItem("accessCode")){
   accessCode = localStorage.getItem("accessCode");
-  loadData();
+  load();
 }
 </script>
 
