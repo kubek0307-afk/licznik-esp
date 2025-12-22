@@ -43,7 +43,7 @@ button,input,textarea,select{width:100%;margin-top:8px;padding:8px}
 <div class="box">
   Lysy: <b id="cLysy">0</b><br>
   Paweł: <b id="cPawel">0</b><br>
-  Poprawa: <b id="cPoprawa">0</b><br>
+  Poprawa: <b id="cPoprawa">0</b>
 </div>
 
 <div class="box">
@@ -52,8 +52,9 @@ button,input,textarea,select{width:100%;margin-top:8px;padding:8px}
     <option value="pawel">Paweł</option>
     <option value="poprawa">Poprawa</option>
   </select>
+  <input id="title" placeholder="Tytuł">
   <textarea id="text" placeholder="Opis"></textarea>
-  <input type="file" id="img" multiple>
+  <input type="file" id="img" accept="image/*">
   <button onclick="send()">Dodaj</button>
 </div>
 
@@ -91,8 +92,9 @@ async function load(){
     el.className="card";
     el.onclick=()=>location.href=`/post.html?id=${p._id}`;
     el.innerHTML=`
-      <span class="tag ${p.type}">${p.type}</span><br>
-      ${p.images[0]?`<img src="${p.images[0]}">`:""}
+      <span class="tag ${p.type}">${p.type}</span>
+      <h4>${p.title || ""}</h4>
+      ${p.image ? `<img src="${p.image}">` : ""}
       <small>${p.date}</small>
     `;
     posts.appendChild(el);
@@ -101,9 +103,10 @@ async function load(){
 
 function send(){
   const fd=new FormData();
-  fd.append("type",type.value);
-  fd.append("text",text.value);
-  [...img.files].forEach(f=>fd.append("images",f));
+  fd.append("type", type.value);
+  fd.append("title", title.value);
+  fd.append("text", text.value);
+  if (img.files[0]) fd.append("image", img.files[0]);
 
   navigator.geolocation.getCurrentPosition(
     p=>{ fd.append("lat",p.coords.latitude); fd.append("lng",p.coords.longitude); submit(fd); },
