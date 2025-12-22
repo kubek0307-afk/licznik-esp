@@ -2,71 +2,170 @@
 <html lang="pl">
 <head>
 <meta charset="UTF-8">
-<title>Post</title>
+<title>Licznik</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
 body{background:#111;color:#eee;font-family:Arial;margin:0}
-.hero{
-  height:260px;
+.box{background:#1c1c1c;padding:12px;margin:12px;border-radius:8px}
+button,input,textarea,select{width:100%;margin-top:8px;padding:8px}
+
+#posts{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
+  gap:12px;
+}
+
+.card{
+  position:relative;
+  height:220px;
   background-size:cover;
   background-position:center;
-  position:relative;
+  border-radius:8px;
+  overflow:hidden;
+  cursor:pointer;
 }
-.overlay{
+
+.card::after{
+  content:"";
   position:absolute;
   inset:0;
-  background:rgba(0,0,0,.6);
-  display:flex;
-  flex-direction:column;
-  justify-content:flex-end;
-  padding:16px;
+  background:rgba(0,0,0,.55);
 }
-.gallery{
-  display:grid;
-  grid-template-columns:repeat(auto-fill,minmax(160px,1fr));
-  gap:10px;
-  padding:12px;
+
+.card-content{
+  position:absolute;
+  bottom:0;
+  padding:10px;
+  z-index:2;
 }
-.gallery img{
-  width:100%;
-  border-radius:6px;
+
+.tag{font-size:12px;padding:2px 6px;border-radius:4px}
+.lysy{background:#2a7}
+.pawel{background:#27a}
+.poprawa{background:#a72}
+
+.adminBtn{
+  margin-top:6px;
+  background:#a33;
+  border:none;
+  color:white;
+  cursor:pointer;
 }
 </style>
 </head>
 <body>
 
-<a href="/">⬅ Powrót</a>
-<div id="post"></div>
+<div class="box" id="loginBox">
+  <input id="codeInput" type="password" placeholder="Hasło">
+  <button onclick="login()">Zaloguj</button>
+</div>
+
+<div id="app" style="display:none">
+
+<div class="box">
+  Lysy: <b id="cLysy">0</b><br>
+  Paweł: <b id="cPawel">0</b><br>
+  Poprawa: <b id="cPoprawa">0</b>
+</div>
+
+<div class="box">
+  <select id="type">
+    <option value="lysy">Lysy</option>
+    <option value="pawel">Paweł</option>
+    <option value="poprawa">Poprawa</option>
+  </select>
+
+  <input id="title" placeholder="Tytuł">
+  <textarea id="text" placeholder="Opis"></textarea>
+
+  <label>Zdjęcie tła</label>
+  <input type="file" id="img" accept="image/*">
+
+  <label>Galeria</label>
+  <input type="file" id="gallery" multiple accept="image/*">
+
+  <button onclick="send()">Dodaj</button>
+</div>
+
+<div class="box">
+  <h3>Posty</h3>
+  <div id="posts"></div>
+</div>
+
+</div>
 
 <script>
-const id=new URLSearchParams(location.search).get("id");
-const accessCode=localStorage.getItem("accessCode");
+let accessCode="";
+let isAdmin=false;
 
-fetch("/api/data",{ headers:{ "access-code":accessCode }})
-.then(r=>r.json())
-.then(d=>{
-  const p=d.history.find(x=>x._id===id);
-  if(!p) return;
+function login(){
+  accessCode = codeInput.value;
+  localStorage.setItem("accessCode", accessCode);
+  load();
+}
 
-  post.innerHTML=`
-    <div class="hero" style="background-image:url('${p.image}')">
-      <div class="overlay">
+async function load(){
+  const r = await fetch("/api/data",{ headers:{ "access-code": accessCode }});
+  if(!r.ok){ alert("Złe hasło"); return; }
+  const d = await r.json();
+  isAdmin = d.isAdmin;
+
+  loginBox.style.display="none";
+  app.style.display="block";
+
+  cLysy.innerText = d.counter.lysy;
+  cPawel.innerText = d.counter.pawel;
+  cPoprawa.innerText = d.counter.poprawa;
+
+  posts.innerHTML="";
+  d.history.forEach(p=>{
+    const el=document.createElement("div");
+    el.className="card";
+    el.style.backgroundImage = p.image ? `url('${p.image}')` : "none";
+    el.onclick=()=>location.href=`/post.html?id=${p._id}`;
+
+    el.innerHTML=`
+      <div class="card-content">
         <span class="tag ${p.type}">${p.type}</span>
-        <h1>${p.title || ""}</h1>
-      </div>
-    </div>
+        <h4>${p.title || ""}</h4>
+        <small>${p.date}</small>
 
-    <div style="padding:12px">
-      <p>${p.text || ""}</p>
-      <p>${p.date}</p>
-    </div>
-
-    ${p.gallery.length ? `
-      <div class="gallery">
-        ${p.gallery.map(i=>`<img src="${i}">`).join("")}
+        ${isAdmin ? `
+          <button class="adminBtn"
+            onclick="del('${p._id}', event)">🗑 Usuń</button>
+        ` : ""}
       </div>
-    ` : ""}
-  `;
-});
+    `;
+    posts.appendChild(el);
+  });
+}
+
+function send(){
+  const fd=new FormData();
+  fd.append("type", type.value);
+  fd.append("title", title.value);
+  fd.append("text", text.value);
+
+  if (img.files[0]) fd.append("image", img.files[0]);
+  [...gallery.files].forEach(f=>fd.append("gallery",f));
+
+  fetch("/api/add",{ method:"POST", headers:{ "access-code": accessCode }, body:fd })
+    .then(load);
+}
+
+function del(id,e){
+  e.stopPropagation();
+  if(!confirm("Usunąć post?")) return;
+  fetch("/api/post/"+id,{
+    method:"DELETE",
+    headers:{ "access-code": accessCode }
+  }).then(load);
+}
+
+if(localStorage.getItem("accessCode")){
+  accessCode = localStorage.getItem("accessCode");
+  load();
+}
 </script>
 
 </body>
