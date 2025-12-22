@@ -23,14 +23,14 @@ cloudinary.config({
   api_secret: process.env.CLOUD_API_SECRET
 });
 
-/* ===== MULTER ===== */
+/* ===== MULTER (WIELE ZDJĘĆ) ===== */
 const storage = new CloudinaryStorage({
   cloudinary,
   params: async () => ({
     folder: "licznik",
     format: "jpg",
     transformation: [
-      { width: 800, crop: "limit" },
+      { width: 1200, crop: "limit" },
       { quality: "auto:eco" }
     ]
   })
@@ -46,7 +46,7 @@ mongoose.connect(MONGO_URI)
 const Entry = mongoose.model("Entry", new mongoose.Schema({
   type: String,                 // lysy | pawel | poprawa
   text: String,
-  img: String,
+  images: [String],
   date: String,
   location: { lat: Number, lng: Number }
 }));
@@ -75,59 +75,35 @@ function auth(req, res, next) {
 /* ===== API ===== */
 app.get("/api/data", auth, async (req, res) => {
   const counter = await Counter.findOne();
-  const history = await Entry.find().sort({ _id: -1 }).limit(100);
+  const history = await Entry.find().sort({ _id: -1 });
   res.json({ counter, history, isAdmin: req.isAdmin });
 });
 
-/* ===== ADD ENTRY ===== */
-app.post("/api/add", auth, upload.single("image"), async (req, res) => {
+/* ===== ADD POST (WIELE ZDJĘĆ) ===== */
+app.post("/api/add", auth, upload.array("images", 10), async (req, res) => {
   try {
     const { type, text, lat, lng } = req.body;
     const counter = await Counter.findOne();
 
-    if (!["lysy", "pawel", "poprawa"].includes(type)) {
+    if (!["lysy", "pawel", "poprawa"].includes(type))
       return res.status(400).json({ error: "Wrong type" });
-    }
 
-    if (type === "lysy") counter.lysy = (counter.lysy || 0) + 1;
-    if (type === "pawel") counter.pawel = (counter.pawel || 0) + 1;
-    if (type === "poprawa") counter.poprawa = (counter.poprawa || 0) + 1;
-
+    counter[type]++;
     await counter.save();
 
     const entry = await Entry.create({
       type,
       text: text || "",
-      img: req.file ? req.file.path : null,
+      images: req.files ? req.files.map(f => f.path) : [],
       date: new Date().toLocaleString("pl-PL"),
       location: lat && lng ? { lat, lng } : null
     });
 
     res.json({ ok: true, entry });
   } catch (e) {
-    console.error("ADD ERROR:", e);
+    console.error(e);
     res.status(500).json({ error: "add failed" });
   }
-});
-
-
-/* ===== DELETE (ADMIN) ===== */
-app.delete("/api/delete/:id", auth, async (req, res) => {
-  if (!req.isAdmin) return res.status(403).json({ error: "Admin only" });
-  await Entry.findByIdAndDelete(req.params.id);
-  res.json({ ok: true });
-});
-
-/* ===== RESET (ADMIN) ===== */
-app.post("/api/reset", auth, async (req, res) => {
-  if (!req.isAdmin) return res.status(403).json({ error: "Admin only" });
-  await Entry.deleteMany({});
-  const counter = await Counter.findOne();
-  counter.lysy = 0;
-  counter.pawel = 0;
-  counter.poprawa = 0;
-  await counter.save();
-  res.json({ ok: true });
 });
 
 /* ===== START ===== */
