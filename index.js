@@ -85,12 +85,13 @@ app.post("/api/add", auth, upload.single("image"), async (req, res) => {
     const { type, text, lat, lng } = req.body;
     const counter = await Counter.findOne();
 
-    if (!["lysy", "pawel", "poprawa"].includes(type))
+    if (!["lysy", "pawel", "poprawa"].includes(type)) {
       return res.status(400).json({ error: "Wrong type" });
+    }
 
-    if (type === "lysy") counter.lysy++;
-    if (type === "pawel") counter.pawel++;
-    if (type === "poprawa") counter.poprawa++;
+    if (type === "lysy") counter.lysy = (counter.lysy || 0) + 1;
+    if (type === "pawel") counter.pawel = (counter.pawel || 0) + 1;
+    if (type === "poprawa") counter.poprawa = (counter.poprawa || 0) + 1;
 
     await counter.save();
 
@@ -104,10 +105,11 @@ app.post("/api/add", auth, upload.single("image"), async (req, res) => {
 
     res.json({ ok: true, entry });
   } catch (e) {
-    console.error(e);
+    console.error("ADD ERROR:", e);
     res.status(500).json({ error: "add failed" });
   }
 });
+
 
 /* ===== DELETE (ADMIN) ===== */
 app.delete("/api/delete/:id", auth, async (req, res) => {
