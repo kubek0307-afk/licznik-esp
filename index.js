@@ -23,14 +23,14 @@ cloudinary.config({
   api_secret: process.env.CLOUD_API_SECRET
 });
 
-/* ===== MULTER (JEDNO ZDJĘCIE) ===== */
+/* ===== MULTER ===== */
 const storage = new CloudinaryStorage({
   cloudinary,
   params: {
     folder: "licznik",
     format: "jpg",
     transformation: [
-      { width: 1200, crop: "limit" },
+      { width: 1600, crop: "limit" },
       { quality: "auto:eco" }
     ]
   }
@@ -44,10 +44,11 @@ mongoose.connect(MONGO_URI)
 
 /* ===== MODELE ===== */
 const Entry = mongoose.model("Entry", new mongoose.Schema({
-  type: String,                 // lysy | pawel | poprawa
+  type: String,
   title: String,
   text: String,
-  image: String,
+  image: String,          // tło
+  gallery: [String],      // dodatkowe zdjęcia
   date: String,
   location: { lat: Number, lng: Number }
 }));
@@ -58,7 +59,7 @@ const Counter = mongoose.model("Counter", new mongoose.Schema({
   poprawa: Number
 }));
 
-/* ===== INIT LICZNIKA ===== */
+/* ===== INIT ===== */
 (async () => {
   const c = await Counter.findOne();
   if (!c) await Counter.create({ lysy: 0, pawel: 0, poprawa: 0 });
@@ -80,33 +81,42 @@ app.get("/api/data", auth, async (req, res) => {
   res.json({ counter, history, isAdmin: req.isAdmin });
 });
 
-/* ===== ADD POST ===== */
-app.post("/api/add", auth, upload.single("image"), async (req, res) => {
-  try {
-    const { type, title, text, lat, lng } = req.body;
-    const counter = await Counter.findOne();
+/* ===== ADD POST (B: TŁO + GALERIA) ===== */
+app.post(
+  "/api/add",
+  auth,
+  upload.fields([
+    { name: "image", maxCount: 1 },
+    { name: "gallery", maxCount: 10 }
+  ]),
+  async (req, res) => {
+    try {
+      const { type, title, text, lat, lng } = req.body;
+      const counter = await Counter.findOne();
 
-    if (!["lysy", "pawel", "poprawa"].includes(type))
-      return res.status(400).json({ error: "Wrong type" });
+      if (!["lysy", "pawel", "poprawa"].includes(type))
+        return res.status(400).json({ error: "Wrong type" });
 
-    counter[type]++;
-    await counter.save();
+      counter[type]++;
+      await counter.save();
 
-    const entry = await Entry.create({
-      type,
-      title: title || "",
-      text: text || "",
-      image: req.file ? req.file.path : null,
-      date: new Date().toLocaleString("pl-PL"),
-      location: lat && lng ? { lat, lng } : null
-    });
+      const entry = await Entry.create({
+        type,
+        title: title || "",
+        text: text || "",
+        image: req.files.image ? req.files.image[0].path : null,
+        gallery: req.files.gallery ? req.files.gallery.map(f => f.path) : [],
+        date: new Date().toLocaleString("pl-PL"),
+        location: lat && lng ? { lat, lng } : null
+      });
 
-    res.json({ ok: true, entry });
-  } catch (e) {
-    console.error("ADD ERROR:", e);
-    res.status(500).json({ error: "add failed" });
+      res.json({ ok: true, entry });
+    } catch (e) {
+      console.error("ADD ERROR:", e);
+      res.status(500).json({ error: "add failed" });
+    }
   }
-});
+);
 
 /* ===== START ===== */
 const PORT = process.env.PORT || 3000;
