@@ -4,8 +4,32 @@
 <meta charset="UTF-8">
 <title>Post</title>
 <style>
-body{background:#111;color:#eee;font-family:Arial}
-img{max-width:100%;border-radius:8px}
+body{background:#111;color:#eee;font-family:Arial;margin:0}
+.hero{
+  height:260px;
+  background-size:cover;
+  background-position:center;
+  position:relative;
+}
+.overlay{
+  position:absolute;
+  inset:0;
+  background:rgba(0,0,0,.6);
+  display:flex;
+  flex-direction:column;
+  justify-content:flex-end;
+  padding:16px;
+}
+.gallery{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(160px,1fr));
+  gap:10px;
+  padding:12px;
+}
+.gallery img{
+  width:100%;
+  border-radius:6px;
+}
 </style>
 </head>
 <body>
@@ -22,12 +46,25 @@ fetch("/api/data",{ headers:{ "access-code":accessCode }})
 .then(d=>{
   const p=d.history.find(x=>x._id===id);
   if(!p) return;
+
   post.innerHTML=`
-    <span class="tag ${p.type}">${p.type}</span>
-    <h2>${p.title || ""}</h2>
-    <p>${p.text || ""}</p>
-    <p>${p.date}</p>
-    ${p.image ? `<img src="${p.image}">` : ""}
+    <div class="hero" style="background-image:url('${p.image}')">
+      <div class="overlay">
+        <span class="tag ${p.type}">${p.type}</span>
+        <h1>${p.title || ""}</h1>
+      </div>
+    </div>
+
+    <div style="padding:12px">
+      <p>${p.text || ""}</p>
+      <p>${p.date}</p>
+    </div>
+
+    ${p.gallery.length ? `
+      <div class="gallery">
+        ${p.gallery.map(i=>`<img src="${i}">`).join("")}
+      </div>
+    ` : ""}
   `;
 });
 </script>
