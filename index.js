@@ -47,8 +47,8 @@ const Entry = mongoose.model("Entry", new mongoose.Schema({
   type: String,
   title: String,
   text: String,
-  image: String,          // tło
-  gallery: [String],      // dodatkowe zdjęcia
+  image: String,
+  gallery: [String],
   date: String,
   location: { lat: Number, lng: Number }
 }));
@@ -74,6 +74,12 @@ function auth(req, res, next) {
   next();
 }
 
+/* ===== UTILS ===== */
+function getPublicId(url){
+  const p = url.split("/");
+  return p[p.length - 1].split(".")[0];
+}
+
 /* ===== API ===== */
 app.get("/api/data", auth, async (req, res) => {
   const counter = await Counter.findOne();
@@ -81,7 +87,7 @@ app.get("/api/data", auth, async (req, res) => {
   res.json({ counter, history, isAdmin: req.isAdmin });
 });
 
-/* ===== ADD POST (B: TŁO + GALERIA) ===== */
+/* ===== ADD POST ===== */
 app.post(
   "/api/add",
   auth,
@@ -117,6 +123,36 @@ app.post(
     }
   }
 );
+
+/* ===== DELETE POST (ADMIN) ===== */
+app.delete("/api/post/:id", auth, async (req, res) => {
+  try {
+    if (!req.isAdmin)
+      return res.status(403).json({ error: "Admin only" });
+
+    const post = await Entry.findById(req.params.id);
+    if (!post) return res.json({ ok: true });
+
+    const counter = await Counter.findOne();
+    if (post.type === "lysy") counter.lysy--;
+    if (post.type === "pawel") counter.pawel--;
+    if (post.type === "poprawa") counter.poprawa--;
+    await counter.save();
+
+    if (post.image)
+      await cloudinary.uploader.destroy(getPublicId(post.image));
+
+    if (post.gallery)
+      for (const img of post.gallery)
+        await cloudinary.uploader.destroy(getPublicId(img));
+
+    await post.deleteOne();
+    res.json({ ok: true });
+  } catch (e) {
+    console.error("DELETE ERROR:", e);
+    res.status(500).json({ error: "delete failed" });
+  }
+});
 
 /* ===== START ===== */
 const PORT = process.env.PORT || 3000;
