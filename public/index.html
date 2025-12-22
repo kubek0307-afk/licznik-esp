@@ -8,23 +8,37 @@
 body{background:#111;color:#eee;font-family:Arial;margin:0}
 .box{background:#1c1c1c;padding:12px;margin:12px;border-radius:8px}
 button,input,textarea,select{width:100%;margin-top:8px;padding:8px}
+
 #posts{
   display:grid;
   grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
   gap:12px;
 }
+
 .card{
-  background:#1c1c1c;
+  position:relative;
+  height:220px;
+  background-size:cover;
+  background-position:center;
   border-radius:8px;
-  padding:8px;
+  overflow:hidden;
   cursor:pointer;
 }
-.card img{
-  width:100%;
-  height:150px;
-  object-fit:cover;
-  border-radius:6px;
+
+.card::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:rgba(0,0,0,.55);
 }
+
+.card-content{
+  position:absolute;
+  bottom:0;
+  padding:10px;
+  z-index:2;
+}
+
 .tag{font-size:12px;padding:2px 6px;border-radius:4px}
 .lysy{background:#2a7}
 .pawel{background:#27a}
@@ -52,9 +66,16 @@ button,input,textarea,select{width:100%;margin-top:8px;padding:8px}
     <option value="pawel">Paweł</option>
     <option value="poprawa">Poprawa</option>
   </select>
+
   <input id="title" placeholder="Tytuł">
   <textarea id="text" placeholder="Opis"></textarea>
+
+  <label>Zdjęcie tła</label>
   <input type="file" id="img" accept="image/*">
+
+  <label>Galeria (opcjonalnie)</label>
+  <input type="file" id="gallery" multiple accept="image/*">
+
   <button onclick="send()">Dodaj</button>
 </div>
 
@@ -90,12 +111,15 @@ async function load(){
   d.history.forEach(p=>{
     const el=document.createElement("div");
     el.className="card";
+    el.style.backgroundImage = p.image ? `url('${p.image}')` : "none";
     el.onclick=()=>location.href=`/post.html?id=${p._id}`;
+
     el.innerHTML=`
-      <span class="tag ${p.type}">${p.type}</span>
-      <h4>${p.title || ""}</h4>
-      ${p.image ? `<img src="${p.image}">` : ""}
-      <small>${p.date}</small>
+      <div class="card-content">
+        <span class="tag ${p.type}">${p.type}</span>
+        <h4>${p.title || ""}</h4>
+        <small>${p.date}</small>
+      </div>
     `;
     posts.appendChild(el);
   });
@@ -106,7 +130,9 @@ function send(){
   fd.append("type", type.value);
   fd.append("title", title.value);
   fd.append("text", text.value);
+
   if (img.files[0]) fd.append("image", img.files[0]);
+  [...gallery.files].forEach(f=>fd.append("gallery",f));
 
   navigator.geolocation.getCurrentPosition(
     p=>{ fd.append("lat",p.coords.latitude); fd.append("lng",p.coords.longitude); submit(fd); },
