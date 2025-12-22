@@ -23,17 +23,17 @@ cloudinary.config({
   api_secret: process.env.CLOUD_API_SECRET
 });
 
-/* ===== MULTER (WIELE ZDJĘĆ) ===== */
+/* ===== MULTER (JEDNO ZDJĘCIE) ===== */
 const storage = new CloudinaryStorage({
   cloudinary,
-  params: async () => ({
+  params: {
     folder: "licznik",
     format: "jpg",
     transformation: [
       { width: 1200, crop: "limit" },
       { quality: "auto:eco" }
     ]
-  })
+  }
 });
 const upload = multer({ storage });
 
@@ -42,11 +42,12 @@ mongoose.connect(MONGO_URI)
   .then(() => console.log("✅ MongoDB połączone"))
   .catch(err => console.error("❌ MongoDB error:", err));
 
-/* ===== MODELS ===== */
+/* ===== MODELE ===== */
 const Entry = mongoose.model("Entry", new mongoose.Schema({
   type: String,                 // lysy | pawel | poprawa
+  title: String,
   text: String,
-  images: [String],
+  image: String,
   date: String,
   location: { lat: Number, lng: Number }
 }));
@@ -57,7 +58,7 @@ const Counter = mongoose.model("Counter", new mongoose.Schema({
   poprawa: Number
 }));
 
-/* ===== INIT ===== */
+/* ===== INIT LICZNIKA ===== */
 (async () => {
   const c = await Counter.findOne();
   if (!c) await Counter.create({ lysy: 0, pawel: 0, poprawa: 0 });
@@ -79,10 +80,10 @@ app.get("/api/data", auth, async (req, res) => {
   res.json({ counter, history, isAdmin: req.isAdmin });
 });
 
-/* ===== ADD POST (WIELE ZDJĘĆ) ===== */
-app.post("/api/add", auth, upload.array("images", 10), async (req, res) => {
+/* ===== ADD POST ===== */
+app.post("/api/add", auth, upload.single("image"), async (req, res) => {
   try {
-    const { type, text, lat, lng } = req.body;
+    const { type, title, text, lat, lng } = req.body;
     const counter = await Counter.findOne();
 
     if (!["lysy", "pawel", "poprawa"].includes(type))
@@ -93,15 +94,16 @@ app.post("/api/add", auth, upload.array("images", 10), async (req, res) => {
 
     const entry = await Entry.create({
       type,
+      title: title || "",
       text: text || "",
-      images: req.files ? req.files.map(f => f.path) : [],
+      image: req.file ? req.file.path : null,
       date: new Date().toLocaleString("pl-PL"),
       location: lat && lng ? { lat, lng } : null
     });
 
     res.json({ ok: true, entry });
   } catch (e) {
-    console.error(e);
+    console.error("ADD ERROR:", e);
     res.status(500).json({ error: "add failed" });
   }
 });
