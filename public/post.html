@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<title>Post</title>
+<style>
+body{background:#111;color:#eee;font-family:Arial}
+.gallery{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(200px,1fr));
+  gap:10px;
+}
+.gallery img{width:100%;border-radius:6px}
+</style>
+</head>
+<body>
+
+<a href="/">⬅ Powrót</a>
+<div id="post"></div>
+
+<script>
+const id=new URLSearchParams(location.search).get("id");
+const accessCode=localStorage.getItem("accessCode");
+
+fetch("/api/data",{ headers:{ "access-code":accessCode }})
+.then(r=>r.json())
+.then(d=>{
+  const p=d.history.find(x=>x._id===id);
+  if(!p) return;
+  post.innerHTML=`
+    <h2>${p.type}</h2>
+    <p>${p.text||""}</p>
+    <p>${p.date}</p>
+    <div class="gallery">
+      ${p.images.map(i=>`<img src="${i}">`).join("")}
+    </div>
+  `;
+});
+</script>
+
+</body>
+</html>
